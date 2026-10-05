@@ -1,4 +1,4 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>屠りの家</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,7 +14,7 @@
   --f-ui:'Zen Kaku Gothic New','Hiragino Sans','Yu Gothic','YuGothic','Meiryo',sans-serif;
   color-scheme:dark;
 }
-html,body{height:100%;margin:0;background:var(--soot);color:var(--paper);overflow:hidden;font-family:var(--f-ui);-webkit-font-smoothing:antialiased}
+html,body{height:100%;margin:0;background:var(--soot);color:var(--paper);overflow:hidden;font-family:var(--f-ui);-webkit-font-smoothing:antialiased;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -69,6 +69,19 @@ h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0}
 .seg button.on{background:var(--paper);color:var(--paper-ink);font-weight:700}
 .seg button:focus-visible{outline:2px solid var(--warn);outline-offset:-2px}
 /* ---- 尋ね人ポスター（被害者） ---- */
+.ptsbox{margin-top:16px;border:1px solid var(--line);background:var(--soot2);padding:12px 14px;border-radius:3px}
+.ptsbox .pt-head{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:8px}
+.ptsbox .pt-head b{font-family:var(--f-display);letter-spacing:.06em}
+.ptsbox .pt-left em{font-style:normal;font-weight:800;color:var(--warn);font-size:1.15em}
+.ptsbox .pt-row{display:grid;grid-template-columns:3.2em auto 1fr 3em;gap:8px;align-items:center;padding:3px 0}
+.ptsbox .pt-ctl{display:inline-flex;gap:2px}
+.ptsbox .pt-ctl button{min-width:2.3em;padding:.25em .4em;background:var(--soot);border:1px solid var(--line);color:var(--paper);cursor:pointer;border-radius:2px;font-size:.8rem}
+.ptsbox .pt-ctl button:hover:not([disabled]){background:var(--soot3);border-color:var(--paper2)}
+.ptsbox .pt-ctl button[disabled]{opacity:.35;cursor:not-allowed}
+.ptsbox .pt-bar{position:relative;height:10px;background:var(--soot);border:1px solid var(--line)}
+.ptsbox .pt-bar i{position:absolute;left:0;top:0;bottom:0;background:var(--blood-hi)}
+.ptsbox .pt-val{text-align:right;font-weight:700}
+.ptsbox .pt-fx{grid-column:1/-1;font-size:.74rem;color:var(--ink-dim);margin:-2px 0 4px 3.2em}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:14px}
 .poster{position:relative;background:var(--paper);color:var(--paper-ink);padding:10px 12px 12px;border:none;text-align:left;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.45);transition:transform .15s;display:flex;flex-direction:column;gap:6px;min-width:0}
 .poster:hover{transform:rotate(-1deg) translateY(-2px)}
@@ -233,6 +246,7 @@ body.touch .h-lock{display:none!important}
 .tbtn.sub{width:54px;height:54px;font-size:11px;background:rgba(25,16,14,.45)}
 #btnAct{right:22px;bottom:30px}
 #btnAtk{right:120px;bottom:88px}
+#btnRev{right:216px;bottom:88px}
 #btnGrab{right:24px;bottom:130px}
 #btnAbi{right:120px;bottom:26px}
 #btnRun{left:148px;bottom:32px}
@@ -281,6 +295,7 @@ body.touch.tasking #joyZone,body.touch.tasking #lookZone{pointer-events:none}
   #joyBase{width:100px;height:100px}
   #joyKnob{width:44px;height:44px;margin:-22px 0 0 -22px}
   #btnAtk{right:104px;bottom:78px}
+  #btnRev{right:188px;bottom:78px}
   #btnGrab{right:20px;bottom:114px}
   #btnAbi{right:104px;bottom:22px}
   #btnItem{right:168px;bottom:56px}
@@ -348,6 +363,7 @@ body.touch.tasking #joyZone,body.touch.tasking #lookZone{pointer-events:none}
       <div class="row"><div class="seg" id="s-side"><button data-v="victim">被害者</button><button data-v="family">一家</button></div>
       <div class="seg" id="s-diff"><button data-v="easy">やさしい</button><button data-v="normal">ふつう</button><button data-v="hard">おそろしい</button></div></div></div>
     <div class="cards" id="s-cards"></div>
+    <div id="s-pts"></div>
     <div class="row" style="justify-content:space-between;margin-top:16px"><span class="small" id="s-note"></span><div class="row"><button class="btn ghost" id="s-back">戻る</button><button class="btn blood" id="s-go">開始</button></div></div>
   </div>
 </section>
@@ -365,12 +381,13 @@ body.touch.tasking #joyZone,body.touch.tasking #lookZone{pointer-events:none}
         <div class="row"><span class="small">自分の陣営</span><div class="seg" id="l-side"><button data-v="victim">被害者</button><button data-v="family">一家</button></div>
           <span class="small" style="margin-left:auto">CPUの強さ</span><div class="seg" id="l-diff"><button data-v="easy">やさしい</button><button data-v="normal">ふつう</button><button data-v="hard">おそろしい</button></div></div>
         <div class="cards" id="l-cards" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))"></div>
+        <div id="l-pts"></div>
       </div>
       <div class="col">
         <div class="chat" id="l-chat" aria-live="polite"></div>
         <div class="row"><input id="l-msg" class="input" style="flex:1" maxlength="80" placeholder="ひとこと"><button class="btn" id="l-send">送る</button></div>
         <p class="small" id="l-net">　</p>
-        <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="<div class="col" style="gap:8px;margin:10px 0"><div class="small" id="perk-label">パーク（3個まで・クリックで循環）</div><div class="row" id="perk-slots" style="flex-wrap:wrap"></div></div><div class="row"><button class="btn" id="l-leave">退出</button><button class="btn blood" id="l-start">開始</button></div></div>
+        <div class="row" style="justify-content:flex-end"><div class="col" style="gap:8px;margin:10px 0"><div class="small" id="perk-label">パーク（3個まで・クリックで循環）</div><div class="row" id="perk-slots" style="flex-wrap:wrap"></div></div><div class="row" style="justify-content:flex-end"><button class="btn ghost" id="l-leave">退出</button><button class="btn blood" id="l-start">開始</button></div>
       </div>
     </div>
   </div>
@@ -445,6 +462,7 @@ body.touch.tasking #joyZone,body.touch.tasking #lookZone{pointer-events:none}
   <button class="tbtn" id="btnAbi">特技</button>
   <button class="tbtn" id="btnGrab">掴む</button>
   <button class="tbtn" id="btnAtk">攻撃</button>
+  <button class="tbtn" id="btnRev" style="display:none">チャージ</button>
   <button class="tbtn big" id="btnAct">調べる</button>
   <div id="taskCtrl">
     <div class="dpad">
@@ -453,7 +471,7 @@ body.touch.tasking #joyZone,body.touch.tasking #lookZone{pointer-events:none}
       <button class="dbtn right" data-k="KeyD">→</button>
       <button class="dbtn down" data-k="KeyS">↓</button>
     </div>
-    <button id="btnTaskE">連打／<br>長押し</button>
+    <button id="btnTaskE">連打／<br>長押し</button><button id="btnTaskCancel" style="position:absolute;right:12px;top:12px;pointer-events:auto" class="btn ghost">中断</button>
   </div>
   <div id="tHint"></div>
 </div>
@@ -639,6 +657,43 @@ const Input = {
     this.pressed.clear(); this.released.clear();
     this.mdx = 0; this.mdy = 0; this.wheel = 0;
     this.mbP = [false, false, false]; this.mbR = [false, false, false];
+  },
+  gpActive: false, gpKeys: new Set(), gpPrev: new Set(),
+  pollGamepad(dt) {
+    const gps = (navigator.getGamepads ? navigator.getGamepads() : []);
+    let gp = null;
+    for (const g of gps) { if (g) { gp = g; break; } }
+    if (!gp) { this.gpActive = false; return; }
+    this.gpActive = true;
+    const I = this, dead = 0.35;
+    const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0, rx = gp.axes[2] || 0, ry = gp.axes[3] || 0;
+    const held = (i) => { const b = gp.buttons[i]; return !!b && (b.pressed || b.value > 0.5); };
+    const want = new Set();
+    if (ay < -dead) want.add('KeyW'); if (ay > dead) want.add('KeyS');
+    if (ax < -dead) want.add('KeyA'); if (ax > dead) want.add('KeyD');
+    if (held(5)) want.add('ShiftLeft');
+    for (const k of this.gpKeys) { if (!want.has(k)) { I.keys.delete(k); this.gpKeys.delete(k); } }
+    for (const k of want) { if (!this.gpKeys.has(k)) { I.keys.add(k); this.gpKeys.add(k); } }
+    const ls = 2.6 * (dt || 0.0167) * 60;
+    I.mdx += rx * ls; I.mdy += ry * ls;
+    const pressed = new Set();
+    for (let i = 0; i < gp.buttons.length; i++) if (held(i)) pressed.add(i);
+    const prev = this.gpPrev;
+    const tap = (i) => pressed.has(i) && !prev.has(i);
+    const rt = held(7), lt = held(6);
+    if (rt && !I.mb[0]) I.mbP[0] = true;
+    if (lt && !I.mb[2]) I.mbP[2] = true;
+    if (!rt && I.mb[0]) I.mbR[0] = true;
+    if (!lt && I.mb[2]) I.mbR[2] = true;
+    I.mb[0] = rt; I.mb[2] = lt;
+    if (tap(4)) I.pressed.add('KeyC');
+    if (tap(0)) I.pressed.add('KeyE');
+    if (tap(2)) I.pressed.add('KeyQ');
+    if (tap(1)) I.pressed.add('KeyR');
+    if (tap(3)) I.pressed.add('Tab');
+    if (tap(9)) I.pressed.add('Escape');
+    this.gpPrev = pressed;
+    if (!this._gpNotified) { this._gpNotified = true; try { UI.toast('コントローラー接続', 'sys'); } catch (e) {} }
   },
 };
 // ===== 14_audio.js : 手続き合成サウンド（Web Audio） =====
@@ -3517,7 +3572,7 @@ Layout.SUSUKI = [24, -58, 58, -32];
 Layout.BAMBOO = [30, 6, 60, 42];
 Layout.fields = function () {
   const R = RNG(1973);
-  const dens = Veg.quality >= 1 ? 1 : 0.55;
+  const dens = Veg.quality >= 1 ? 1 : Veg.quality <= -2 ? 0.3 : 0.55;
   // 田んぼ
   const rice = [];
   for (const [x0, z0, x1, z1] of Layout.PADDIES) {
@@ -3904,8 +3959,9 @@ const Render = {
   },
   setQuality(q) {
     this.quality = q;
+    if (typeof Veg !== 'undefined') Veg.quality = q;
     const r = this.renderer;
-    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, q >= 2 ? 1.5 : q === 1 ? 1.0 : 0.75));
+    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, q >= 2 ? 1.5 : q === 1 ? 1.0 : q === 0 ? 0.5 : q === -1 ? 0.4 : 0.25));
     r.shadowMap.enabled = q >= 1;
     this.sun.castShadow = q >= 1;
     const sz = q >= 2 ? 2048 : 1024;
@@ -4397,6 +4453,8 @@ const VICTIMS = [
     feature: '山道でも息が上がらない健脚。', look: { skin: 0xd8a882, hair: 0x140e0c, hairStyle: 'short', top: 0x1e3a6e, topType: 'jersey', bottom: 0x1e3a6e, shoes: 0xe8e4e0, band: 0xe8e4e0, h: 0.98, w: 0.95 } },
   { id: 'haru', name: '九条 晴', kana: 'くじょう はる', title: '写真部', age: 21, female: false, attrs: { T: 3, E: 3, S: 5, St: 2, P: 3 }, ability: 'listen',
     feature: '耳がいい。物音の主をすぐに当てる。', look: { skin: 0xdcb28e, hair: 0x221812, hairStyle: 'long', top: 0x8a6a3a, topType: 'vest', bottom: 0x4a5a78, shoes: 0x3a2a1a, glasses: true, camera: true, h: 1.0 } },
+  { id: 'dosukoi', name: '土佐駒 武将', kana: 'どすこい ぶしょう', title: '元相撲力士', age: 28, female: false, attrs: { T: 4, E: 2, S: 1, St: 5, P: 4 }, ability: 'dosukoi',
+    feature: 'ドスコイ！の掛け声で一家を怯ませる。回復薬で体が強化される。', look: { skin: 0xe0b090, hair: 0x1a1210, hairStyle: 'topknot', top: 0x3a2a1a, topType: 'mawashi', bottom: 0x2a1a0a, shoes: 0x1a1008, h: 1.12, w: 1.45 } },
 ];
 const FAMILY = [
   { id: 'nokomen', name: '鬼塚 権三', alias: '鋸面', title: '長男', attrs: { Sav: 5, E: 3, St: 5, BH: 2 }, ability: 'saw', size: 'large', required: true,
@@ -4429,6 +4487,7 @@ const ABIL = {
   trap: { name: 'トラバサミ', desc: '足元に罠を仕掛ける。踏んだ被害者は動けなくなり、大きな音が鳴る。最大3つ。', dur: 0, cd: 6 },
   hunt: { name: '追跡', desc: '一定時間、被害者の残した足跡が見える。', dur: 15, cd: 45 },
   bane: { name: '毒霧', desc: '狙った場所に毒の瓶を投げ、毒霧を広げる。Eで入れ物や拾い物に毒を仕込める。', dur: 25, cd: 35 },
+  dosukoi: { name: 'ドスコイ', desc: '跳ね上がり、近くの一家を6秒間怯ませる。回復薬使用で15秒間能力強化。', dur: 6, cd: 68 },
 };
 const EXIT_INFO = {
   fuse: { name: '配電盤の出口', where: '地下・配電盤の間', how: 'ヒューズを配電盤に差し込み、電流を合わせるとシャッターが開く。' },
@@ -4436,19 +4495,36 @@ const EXIT_INFO = {
   bat: { name: 'バッテリーの出口', where: '西の電気柵の門', how: '電牧器のバッテリーを外し、門の錠を針金で開ける。' },
   valve: { name: '水門の出口', where: '南東の水門', how: 'バルブハンドルをポンプに取り付け、圧力を上げて水門を吹き飛ばす。' },
 };
+// ブラッドポイント：被害者は1キャラにつき50pt。体力・隠密・巧妙・持久・腕力に振り、振った数×5%だけ効果が強くなる
+const PT_KEYS = ['T', 'S', 'P', 'E', 'St'];
+const PT_NAMES = { T: '体力', S: '隠密', P: '巧妙', E: '持久', St: '腕力' };
+const PT_TOTAL = 50, PT_STEP = 0.05;
+function sanitizePts(p) {
+  const o = { T: 0, S: 0, P: 0, E: 0, St: 0 };
+  let left = PT_TOTAL;
+  if (p && typeof p === 'object') for (const k of PT_KEYS) { const n = Math.max(0, Math.min(Math.floor(Number(p[k]) || 0), left)); o[k] = n; left -= n; }
+  return o;
+}
+function sanitizePtsMap(m) {
+  const o = {};
+  if (m && typeof m === 'object') for (const d of VICTIMS) if (m[d.id]) o[d.id] = sanitizePts(m[d.id]);
+  return o;
+}
+// 一家は攻撃を振った直後の0.45秒、足が130%の速さになる（連続で振るたびに延長）
+const SWING_BOOST_T = 0.45, SWING_BOOST_MUL = 1.3;
 // 派生ステータス
-function victimStats(def) {
-  const a = def.attrs;
+function victimStats(def, pts) {
+  const a = def.attrs, p = sanitizePts(pts), m = (k) => 1 + p[k] * PT_STEP;
   return {
-    maxHp: (80 + a.T * 12) * 1.3 * 1.17, maxSt: 70 + a.E * 12, stRegen: 9 + a.E * 2.4, noiseMul: 1.25 - a.S * 0.1,
-    str: a.St * 1.5, prof: a.P, walk: 2.1, crouch: 1.3, sprint: 5.2, radius: 0.33, height: 1.72 * def.look.h,
+    maxHp: (80 + a.T * 12) * 1.3 * 1.17 * 1.45 * m('T'), maxSt: (70 + a.E * 12) * m('E'), stRegen: (9 + a.E * 2.4) * m('E'), noiseMul: (1.25 - a.S * 0.1) / m('S'),
+    str: a.St * 1.5 * m('St'), prof: a.P * m('P'), walk: 2.1, crouch: 1.3, sprint: 5.2, radius: 0.33, height: 1.72 * def.look.h,
   };
 }
 function familyStats(def) {
   const a = def.attrs;
   const big = def.id === 'nokomen';
   return {
-    maxHp: 999, maxSt: (100 + a.E * 10) * 1.1, stRegen: 12 + a.E, dmgLight: (9 + a.Sav * 2.5) * 0.85, dmgHeavy: (18 + a.Sav * 4) * 0.85, dmgSaw: (20 + a.Sav * 3) * 0.7 * 0.85,
+    maxHp: 999, maxSt: (100 + a.E * 10) * 1.1, stRegen: (12 + a.E) * 1.75, dmgLight: (9 + a.Sav * 2.5) * 0.85, dmgHeavy: (18 + a.Sav * 4) * 0.85, dmgSaw: (20 + a.Sav * 3) * 0.7 * 0.85,
     str: a.St, blood: 100 + a.BH * 10, bloodMul: 0.8 + a.BH * 0.1, walk: 2.4, crouch: 1.3, sprint: 4.9, radius: big ? 0.45 : 0.4, height: 1.75 * def.look.h,
     small: def.size === 'small',
   };
@@ -4465,7 +4541,8 @@ class Char {
   constructor(o) {
     Object.assign(this, { id: o.id, slot: o.slot, side: o.side, defId: o.defId, name: o.name || '', owner: o.owner || 'host', bot: !!o.bot, diff: o.diff || 'normal' });
     this.def = (this.side === 'victim' ? VICTIMS : FAMILY).find((d) => d.id === this.defId);
-    this.stats = this.side === 'victim' ? victimStats(this.def) : familyStats(this.def);
+    this.pts = this.side === 'victim' ? sanitizePts(o.pts) : null;
+    this.stats = this.side === 'victim' ? victimStats(this.def, this.pts) : familyStats(this.def);
     this.x = 0; this.y = 0; this.z = 0; this.yaw = 0; this.vx = 0; this.vz = 0; this.vy = 0;
     this.r = this.stats.radius; this.hStand = this.side === 'victim' ? 1.72 : 1.8; this.h = this.hStand;
     this.cls = this.side === 'victim' ? 'victim' : (this.stats.small ? 'small' : 'large');
@@ -4513,6 +4590,7 @@ class Char {
     this.crouch = wantCrouch && !lock;
     this.h = this.crouch ? 0.9 : this.hStand;
     let spd = 0, mag = lock ? 0 : clamp(it.mag || 0, 0, 1);
+    if (this.isFamily && this.actUntil !== this._swingSeen && (this.act === ACT.attack || this.act === ACT.heavy || this.act === ACT.saw || this.act === ACT.slam)) { this._swingSeen = this.actUntil; s.swingBoost = t + SWING_BOOST_T; }
     const zone = Phys.zoneAt(this.x, this.z, this.y);
     let sprinting = false;
     if (mag > 0.05) {
@@ -4527,6 +4605,7 @@ class Char {
       if (this.defId === 'nokomen' && s.rev > 0.65) spd *= 0.93;
       if (this.defId === 'ryouriban' && s.listen > t) spd *= 0.4;
       if (it.slowMul) spd *= it.slowMul;
+      if (this.isFamily && t < (s.swingBoost || 0)) spd *= SWING_BOOST_MUL;
     }
     this.sprint = sprinting;
     // スタミナ
@@ -4537,6 +4616,7 @@ class Char {
       if (this.stamina <= 0) { this.stamina = 0; this.exhausted = true; }
     } else if (t - this.lastSprintT > 0.9) {
       this.stamina = Math.min(S.maxSt, this.stamina + S.stRegen * dt * (this.crouch ? 1.15 : 1) * (mag < 0.05 ? 1.25 : 1));
+      if (this.defId === 'dokumusume' && this.st.charges < 2) { this.st._pT = (this.st._pT || 0) + dt; if (this.st._pT >= 15) { this.st._pT = 0; this.st.charges++; } }
       if (this.exhausted && this.stamina > S.maxSt * 0.3) this.exhausted = false;
     }
     // 速度
@@ -4626,7 +4706,7 @@ class Char {
     }
   }
   startTrav(L, fromA, t) {
-    if (L.locked && this.isVictim) return;
+    if (L.locked && this.isVictim) { UI.toast('錠がかかっている', 'sys'); return; }
     const a = fromA ? L.a : L.b, b = fromA ? L.b : L.a;
     this.trav = { link: L, from: { x: this.x, y: this.y, z: this.z }, to: { x: b.x, y: b.y, z: b.z }, t: 0, dur: (!fromA && L.durUp) || L.dur, start: { x: a.x, y: a.y, z: a.z } };
     this.vx = this.vz = 0; this.crouch = false;
@@ -4743,7 +4823,7 @@ const Game = {
     R.shuffle(fam);
     let vi = 0, fi = 0;
     cfg.roster.forEach((r, i) => {
-      const ch = new Char({ id: i, slot: r.slot, side: r.side, defId: r.defId, name: r.name, owner: r.owner, bot: r.bot, diff: r.diff });
+      const ch = new Char({ id: i, slot: r.slot, side: r.side, defId: r.defId, name: r.name, owner: r.owner, bot: r.bot, diff: r.diff, pts: r.pts });
       this.chars.push(ch);
       ch.makeModel(this.scene);
       if (ch.isVictim) {
@@ -4758,7 +4838,7 @@ const Game = {
         ch.st.bound = false;
         if (ch.defId === 'ryouriban') ch.st.charges = 3;
         if (ch.defId === 'wanashi') ch.st.charges = 3;
-        if (ch.defId === 'dokumusume') ch.st.charges = 3;
+        if (ch.defId === 'dokumusume') ch.st.charges = 2;
       }
       if (r.owner === cfg.myId && !r.bot) this.localCid = i;
     });
@@ -4771,7 +4851,7 @@ const Game = {
     AI.onMatchStart();
   },
   resetWorld() {
-    World.doors.forEach((d, i) => { const ini = this.doorInit[i]; d.openT = d.target = ini.open ? 1 : 0; d.locked = ini.locked; d.padlocked = false; d.destroyed = false; d.saw = 0; d.pivot.visible = true; B.updateDoorVisual(d); });
+    World.doors.forEach((d, i) => { const ini = this.doorInit[i]; d.openT = d.target = ini.open ? 1 : 0; d.locked = ini.locked; d.padlocked = false; d.destroyed = false; d.saw = 0; d.picked = false; d.pickCount = 0; d.pivot.visible = true; B.updateDoorVisual(d); });
     World.barricades.forEach((b) => { b.destroyed = false; b.g.visible = true; b.box.on = true; b.saw = 0; });
     World.containers.forEach((c) => { c.searched = false; c.poisoned = false; c.item = null; if (c.lid) { c.lid.rotation.x = 0; if (c.type === 'drawer') c.lid.visible = false; } });
     World.hides.forEach((h) => { h.occupant = -1; h.open = 0; });
@@ -5044,7 +5124,7 @@ const Rules = {
   damage(v, amount, kind, by, kx = 0, kz = 0) {
     const t = Game.time;
     if (!v.alive || v.st.exec >= 0) return;
-    if (v.isVictim && v.defId === 'anna' && v.st.abil > t) { if (kind === 'poison') return; amount *= kind === 'fall' ? 0.2 : 0.45; }
+    if (v.isVictim && v.defId === 'anna' && v.st.abil > t) { if (kind === 'poison') return; amount *= (kind === 'fall' ? 0.2 : 0.45) / 3; }
     if (by && by.isFamily && by.bot) amount *= (DIFF[by.diff] || DIFF.normal).dmg; // CPU一家の手加減（難易度）
     amount = Math.round(amount);
     if (amount <= 0) return;
@@ -5288,6 +5368,7 @@ const Rules = {
     if (!f.alive || f.st.stun > t || f.st.grabbing >= 0 || f.st.exec >= 0) return;
     const P = { light: { w: 0.22, r: 2.0, arc: 110, dmg: f.stats.dmgLight, kb: 2.6 }, heavy: { w: 0.55, r: 2.3, arc: 90, dmg: f.stats.dmgHeavy, kb: 4.5 }, saw: { w: 0.12, r: 2.6, arc: 120, dmg: f.stats.dmgSaw, kb: 3.6 }, slam: { w: 0.6, r: 2.5, arc: 70, dmg: f.stats.dmgHeavy * 0.9, kb: 5 } }[kind];
     if (!P) return;
+    P.r *= 1.75;
     Game.emit({ e: 'sfx', n: kind === 'saw' ? 'saw_hit' : 'whoosh', x: f.x, y: f.y + 1.3, z: f.z, l: f.lvl });
     this.later(P.w, () => {
       if (!f.alive || f.st.stun > Game.time) return;
@@ -5298,7 +5379,7 @@ const Rules = {
         const dx = v.x - f.x, dz = v.z - f.z, d = Math.hypot(dx, dz);
         if (d > P.r + v.r || Math.abs(v.y - f.y) > 1.3) continue;
         const ang = Math.acos(clamp((dx * fx + dz * fz) / Math.max(d, 1e-3), -1, 1)) / DEG;
-        if (d > 0.6 && ang > P.arc / 2) continue;
+        if (d > 1.8 && ang > P.arc / 2) continue;
         if (!Phys.los({ x: f.x, y: f.y + 1.2, z: f.z }, { x: v.x, y: v.y + 1.0, z: v.z })) continue;
         v.st.hurtGrace = Game.time + 0.45;
         this.damage(v, P.dmg, kind, f, dx / Math.max(d, 0.1) * P.kb, dz / Math.max(d, 0.1) * P.kb);
@@ -5350,6 +5431,7 @@ const Rules = {
         if (closed && ch.isVictim && (d.locked || d.padlocked)) break;
         if (r.barge && ch.defId === 'ryoushi' && closed) { Game.emit({ e: 'door', i: d.id, o: 1, s: 'slam' }); this.noise(d.x, d.y, d.z, 14, 'slam', null); break; }
         Game.emit({ e: 'door', i: d.id, o: closed ? 1 : 0, s: closed ? 'open' : 'close' });
+        if (!closed && ch.isFamily && !d.picked) { Game.emit({ e: 'door', i: d.id, l: 1 }); }
         if (ch.isVictim && ch.sprint) this.noise(d.x, d.y, d.z, 9, 'door', ch);
         break;
       }
@@ -5368,6 +5450,9 @@ const Rules = {
         if (!focus && ch.inv.main !== 'wire') break;
         if (!focus) { const _luck = perkVal(ch.perks && ch.perks.map(id=>({id})), 'lucky_lock'); if (ch.inv.main === 'wire' && Math.random() < (ch.perkMul ? (Settings.vPerks||[]).reduce((a,s)=>a+(s&&s.id==='lucky_lock'?[0.3,0.4,0.5][s.lv]:0),0) : 0)) { this.msg('ラッキー！針金が残った', 'sys'); } else { ch.inv.main = null; this.inv(ch); } }
         ch.stats0.unlocked++;
+        d.pickCount = (d.pickCount || 0) + 1;
+        if (d.exit && d.pickCount < 2) { this.msg('まだ錠前が堅い。あと1回ピッキングが必要', 'sys'); Game.emit({ e: 'sfx', n: 'pick_fail', x: d.x, y: d.y + 1, z: d.z, l: d.lvl }); break; }
+        d.picked = true;
         Game.emit({ e: 'door', i: d.id, l: 0, p: 0, o: 1, s: d.exit ? 'gate' : 'unlock' });
         if (d.exit === 'bat') this.msg('バッテリーの門が開いた！', 'exit');
         break;
@@ -5409,7 +5494,7 @@ const Rules = {
         if (!tg || !tg.isVictim || !tg.alive || (tg !== ch && !this.near(ch, tg.x, tg.y, tg.z, 2.4))) break;
         const bad = ch.inv.healPoison;
         ch.inv.heal = false; ch.inv.healPoison = false; this.inv(ch);
-        Game.emit({ e: 'sfx', n: 'drink', x: tg.x, y: tg.y + 1.4, z: tg.z, l: tg.lvl });
+        Game.emit({ e: 'sfx', n: 'drink', x: tg.x, y: tg.y + 1.4, z: tg.z, l: tg.lvl }); if (tg.defId === 'dosukoi') { tg.st.buffUntil = t + 15; tg.stats.walk *= 1.1; tg.stats.sprint *= 1.1; tg.stats.stRegen *= 1.2; tg.stats.maxHp *= 1.05; setTimeout(() => { if (tg.stats) { tg.stats.walk /= 1.1; tg.stats.sprint /= 1.1; tg.stats.stRegen /= 1.2; tg.stats.maxHp /= 1.05; } }, 15000); }
         if (bad && !(tg.defId === 'anna' && tg.st.abil > t)) { this.damage(tg, 20, 'poison', null); this.poisonVictim(tg, 15); Game.emit({ e: 'msg', t: '薬に毒が仕込まれていた！', c: 'sys', to: tg.id }); }
         else { const nh = Math.min(tg.stats.maxHp, tg.hp + 45); const d = nh - tg.hp; tg.hp = nh; Game.emit({ e: 'hp', c: tg.id, v: nh, d, k: 'heal' }); this.st(tg, { poison: 0 }); }
         break;
@@ -5513,7 +5598,7 @@ const Rules = {
       case 'abil': this.ability(ch, r, t); break;
       case 'atk': if (ch.isFamily) this.attack(ch, r.kind); break;
       case 'grab': {
-        if (!ch.isFamily || ch.defId === 'nokomen' || !ch.alive || ch.st.stun > t || ch.st.grabbing >= 0 || !this.cd('grab' + ch.id, 3.5)) break;
+        if (!ch.isFamily || !ch.alive || ch.st.stun > t || ch.st.grabbing >= 0 || !this.cd('grab' + ch.id, 3.5)) break;
         const fx = Math.sin(ch.yaw), fz = Math.cos(ch.yaw);
         let best = null, bd = 1e9;
         for (const v of Game.chars) {
@@ -5597,6 +5682,14 @@ const Rules = {
     if (!ch.alive || ch.st.abilCd > t) return;
     const A = ABIL[ch.def.ability];
     switch (ch.def.ability) {
+      case 'dosukoi': {
+        this.st(ch, { abil: t + A.dur, abilCd: t + A.cd * (ch.isFamily ? 0.7 : 1) });
+        ch.act = ACT.heal; ch.actUntil = t + 0.6; ch.vy = 5.5; // 跳ね上がる
+        this.noise(ch.x, ch.y, ch.z, 14, 'dosukoi', ch);
+        // 近くの一家を6秒怯ませる
+        for (const f of Game.chars) { if (f.isFamily && f.alive && Math.hypot(f.x - ch.x, f.z - ch.z) < 5.5 && Math.abs(f.y - ch.y) < 2) { f.st.stun = t + 6; f.act = ACT.stunned; f.actUntil = t + 6; } }
+        this.msg('ドスコイ！', 'vic');
+        break; }
       case 'focus': this.st(ch, { abil: t + A.dur, abilCd: t + A.cd * (ch.isFamily ? 0.7 : 1) }); break;
       case 'tackle': if (ch.locked(t) && ch.st.grabbedBy < 0) return; ch.dashUntil = t + 0.85; this.st(ch, { abil: t + 0.85, abilCd: t + A.cd * (ch.isFamily ? 0.7 : 1) }); this.noise(ch.x, ch.y, ch.z, 10, 'tackle', ch); break;
       case 'numb': this.st(ch, { abil: t + A.dur, abilCd: t + A.cd * (ch.isFamily ? 0.7 : 1), poison: 0 }); break;
@@ -5608,7 +5701,7 @@ const Rules = {
   },
 };
 // ===== 46_player.js : 操作・カメラ・インタラクション・ミニゲームの進行 =====
-const Settings = Object.assign({ sens: 1.0, invertY: false, fov: 72, quality: 2, master: 0.8, sfx: 1, amb: 0.7, mus: 0.6, name: '', diff: 'normal', side: 'victim', vchar: 'sayuri', fchar: 'ryouriban', vPerks: [null,null,null], fPerks: [null,null,null], gPerk: null,
+const Settings = Object.assign({ vPts: {}, sens: 1.0, invertY: false, fov: 72, quality: 2, master: 0.8, sfx: 1, amb: 0.7, mus: 0.6, name: '', diff: 'normal', side: 'victim', vchar: 'sayuri', fchar: 'ryouriban', vPerks: [null,null,null], fPerks: [null,null,null], gPerk: null,
 
   
  peerHost: '', peerPort: '', peerPath: '/', peerSecure: true, ice: '' }, Store.get('settings', {}));
@@ -5650,22 +5743,56 @@ window.renderPerkSlots = function(){
   const isFam = Settings.side === 'family';
   const pool = isFam ? PERKS.family : PERKS.victim;
   const slots = isFam ? (Settings.fPerks || [null,null,null]) : (Settings.vPerks || [null,null,null]);
-  if (lbl) lbl.textContent = isFam ? '一家パーク（3個＋グランパ枠・クリックで循環）' : '被害者パーク（3個まで・クリックで循環）';
+  if (lbl) lbl.textContent = isFam ? '一家パーク（3個＋グランパ枠・タップで選択）' : '被害者パーク（3個まで・タップで選択）';
   box.innerHTML = '';
+  // モーダル生成（初回のみ）
+  let modal = document.getElementById('perk-modal');
+  if (!modal) {
+    modal = document.createElement('div'); modal.id = 'perk-modal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.85);display:none;flex-direction:column;padding:16px;overflow:auto';
+    document.body.appendChild(modal);
+  }
+  const openModal = (slotIdx, isGp) => {
+    modal.style.display = 'flex';
+    let html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0;color:#e8dcc0">' + (isGp ? 'グランパパーク選択' : 'パーク枠' + (slotIdx+1) + ' 選択') + '</h3><button class="btn ghost" id="pm-close">閉じる</button></div>';
+    html += '<div id="pm-list" style="display:flex;flex-direction:column;gap:8px"></div>';
+    modal.innerHTML = html;
+    document.getElementById('pm-close').onclick = () => { modal.style.display = 'none'; };
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+    const list = document.getElementById('pm-list');
+    const pick = (pid, lv) => {
+      if (isGp) { Settings.gPerk = pid; }
+      else { slots[slotIdx] = pid ? { id: pid, lv: lv } : null; if (isFam) Settings.fPerks = slots; else Settings.vPerks = slots; }
+      saveSettings(); modal.style.display = 'none'; window.renderPerkSlots();
+    };
+    // 未選択ボタン
+    const clr = document.createElement('button'); clr.className = 'btn ghost'; clr.style.cssText = 'width:100%;padding:10px'; clr.textContent = '未選択（パークなし）';
+    clr.onclick = () => pick(null, 0); list.appendChild(clr);
+    const srcPool = isGp ? PERKS.grandpa : pool;
+    for (const p of srcPool) {
+      const row = document.createElement('div'); row.style.cssText = 'background:rgba(40,32,24,.9);border:1px solid #6a5a40;border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:6px';
+      row.innerHTML = '<b style="color:#e8dcc0;font-size:14px">' + p.name + '</b><span class="small" style="color:#b8a888;font-size:12px">' + p.desc + '</span>';
+      const btns = document.createElement('div'); btns.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap';
+      if (isGp) {
+        const b = document.createElement('button'); b.className = 'btn'; b.style.cssText = 'flex:1'; b.textContent = '選択';
+        b.onclick = () => pick(p.id, 0); btns.appendChild(b);
+      } else {
+        for (let lv = 0; lv < 3; lv++) {
+          const b = document.createElement('button'); b.className = 'btn'; b.style.cssText = 'flex:1;min-width:70px';
+          const cur = slots[slotIdx]; const sel = cur && cur.id === p.id && cur.lv === lv;
+          b.style.background = sel ? '#8c1a12' : ''; b.textContent = 'Lv' + (lv+1);
+          b.onclick = () => pick(p.id, lv); btns.appendChild(b);
+        }
+      }
+      row.appendChild(btns); list.appendChild(row);
+    }
+  };
   const mk = (idx, isGp) => {
     const b = document.createElement('button'); b.className = 'btn'; b.style.cssText = 'flex:1 1 140px;min-height:54px;font-size:12px;text-align:left;flex-direction:column;align-items:flex-start;gap:2px;padding:6px 10px';
     const cur = isGp ? Settings.gPerk : slots[idx];
     const def = isGp ? (cur ? PERKS.grandpa.find(p=>p.id===cur) : null) : (cur ? pool.find(p=>p.id===cur.id) : null);
-    b.innerHTML = def ? '<b>'+(isGp?'[GP] ':'[Lv'+(cur.lv+1)+'] ')+def.name+'</b><span class="small">'+def.desc+'</span>' : '<span class="small">'+(isGp?'グランパパーク':'パーク枠'+(idx+1))+'（未選択）</span>';
-    b.onclick = () => {
-      if (isGp) { const i = cur ? PERKS.grandpa.findIndex(p=>p.id===cur) : -1; const ni = i + 1; Settings.gPerk = ni < PERKS.grandpa.length ? PERKS.grandpa[ni].id : null; }
-      else {
-        if (!cur) { slots[idx] = { id: pool[0].id, lv: 0 }; }
-        else { const pi = pool.findIndex(p=>p.id===cur.id); if (cur.lv < 2) slots[idx].lv++; else { const ni = (pi+1)%(pool.length+1); slots[idx] = ni < pool.length ? { id: pool[ni].id, lv: 0 } : null; } }
-        if (isFam) Settings.fPerks = slots; else Settings.vPerks = slots;
-      }
-      saveSettings(); window.renderPerkSlots();
-    };
+    b.innerHTML = def ? '<b style="color:#ffd890">'+(isGp?'[GP] ':'[Lv'+(cur.lv+1)+'] ')+def.name+'</b><span class="small" style="color:#b8a888">'+def.desc+'</span>' : '<span class="small" style="color:#8a7a60">'+(isGp?'グランパパーク':'パーク枠'+(idx+1))+'（タップして選択）</span>';
+    b.onclick = () => openModal(idx, isGp);
     box.appendChild(b);
   };
   for (let i=0;i<3;i++) mk(i,false);
@@ -5692,7 +5819,7 @@ const Player = {
   task: null, focus: null, spec: -1, it: { dx: 0, dz: 0, mag: 0 }, atkHold: 0, atkCd: 0, mashAcc: 0, mashSend: 0, dashUntil: 0, dashDir: null,
   hideLook: 0, deadT: 0,
   onMatchStart(ch) {
-    this.task = null; this.focus = null; this.spec = -1; this.atkHold = 0; this.atkCd = 0; this.dashUntil = 0; this.deadT = 0; this.overRev = 0; if (ch && applyPerks) applyPerks(ch);
+    this.task = null; this.focus = null; this.spec = -1; this.atkHold = 0; this.atkCd = 0; this.dashUntil = 0; this.deadT = 0; this.overRev = 0; if (ch && applyPerks) { try { applyPerks(ch); } catch(e) { console.warn('perk apply failed', e); } }
     if (ch) { this.camYaw = ch.yaw; this.camPitch = -0.12; }
     this.cam.set(ch ? ch.x : 0, ch ? ch.y + 2 : 2, ch ? ch.z - 3 : 0);
   },
@@ -5707,7 +5834,7 @@ const Player = {
     const uiBlock = UI.blocking();
     const I = Input;
     // マウス視点
-    if ((I.locked || I.isTouch) && !uiBlock) {
+    if ((I.locked || I.isTouch || I.gpActive) && !uiBlock) {
       const k = 0.0034 * Settings.sens;
       this.camYaw -= I.mdx * k;
       this.camPitch = clamp(this.camPitch + I.mdy * k * (Settings.invertY ? 1 : -1), -1.15, 1.2);
@@ -5815,7 +5942,7 @@ const Player = {
     // 料理番の南京錠 / 毒娘の毒仕込み（F）
     if (I.hit('KeyF')) {
       if (ch.defId === 'ryouriban') { const d = this.nearDoor(ch, (d) => !d.exit && d.padlockable && !d.padlocked && d.target < 0.1); if (d && s.charges > 0) this.startTask({ type: 'hold', kind: 'padlock', id: d.id, label: '南京錠をかける', dur: 1.5, act: ACT.work, at: d }, ch); else UI.toast(s.charges > 0 ? '閉じた扉の前で使う' : '南京錠がもうない', 'sys'); }
-      if (ch.defId === 'dokumusume') { const c = this.nearContainer(ch, (c) => !c.searched && !c.poisoned), it = Game.items.find((x) => !x.p && Math.hypot(x.x - ch.x, x.z - ch.z) < 1.8); if (s.charges <= 0) UI.toast('毒の小瓶がもうない', 'sys'); else if (c) this.startTask({ type: 'hold', kind: 'poison', pk: 'cont', id: c.id, label: '毒を仕込む', dur: 1.5, act: ACT.work, at: c }, ch); else if (it) this.startTask({ type: 'hold', kind: 'poison', pk: 'item', id: it.i, label: '毒を仕込む', dur: 1.5, act: ACT.work, at: it }, ch); else UI.toast('入れ物か落ちている物の近くで使う', 'sys'); }
+      if (ch.defId === 'dokumusume') { const c = this.nearContainer(ch, (c) => !c.searched && !c.poisoned), it = Game.items.find((x) => !x.p && Math.hypot(x.x - ch.x, x.z - ch.z) < 1.8); if (s.charges <= 0) UI.toast('毒の小瓶がもうない', 'sys'); else if (c) this.startTask({ type: 'hold', kind: 'poison', pk: 'cont', id: c.id, label: '毒を仕込む', dur: 1.5, act: ACT.work, at: c }, ch); else if (it) this.startTask({ type: 'hold', kind: 'poison', pk: 'item', id: it.i, label: '毒を仕込む', dur: 1.5, act: ACT.work, at: it }, ch); else { const _pp = { x: ch.x + Math.sin(ch.yaw) * 2, y: ch.y, z: ch.z + Math.cos(ch.yaw) * 2 }; Game.req({ k: 'cloud', x: _pp.x, y: _pp.y, z: _pp.z }, ch); UI.toast('前方2mに毒瓶を撒いた', 'sys'); } }
     }
     if (ch.defId === 'nokomen') {
       // 空ぶかし
@@ -5849,7 +5976,7 @@ const Player = {
     switch (ch.def.ability) {
       case 'focus': if (ch.stamina < 30) { UI.toast('スタミナが足りない', 'sys'); return; } ch.stamina -= 30; Game.req({ k: 'abil' }, ch); break;
       case 'tackle': if (ch.stamina < 20) { UI.toast('スタミナが足りない', 'sys'); return; } ch.stamina -= 20; this.dashUntil = t + 0.85; this.dashDir = { x: Math.sin(this.camYaw), z: Math.cos(this.camYaw) }; Game.req({ k: 'abil' }, ch); break;
-      case 'numb': case 'sprint': case 'listen': case 'seek': case 'hunt': Game.req({ k: 'abil' }, ch); if (ch.def.ability === 'seek') { ch.act = ACT.listen; ch.actUntil = t + A.dur; } if (ch.def.ability === 'hunt') { ch.act = ACT.track; ch.actUntil = t + 1.2; } break;
+      case 'numb': case 'sprint': case 'listen': case 'seek': case 'hunt': case 'dosukoi': Game.req({ k: 'abil' }, ch); if (ch.def.ability === 'seek') { ch.act = ACT.listen; ch.actUntil = t + A.dur; } if (ch.def.ability === 'hunt') { ch.act = ACT.track; ch.actUntil = t + 1.2; } break;
       case 'trap': { if (!this.cdOk('trapPlace', 2)) return; const p = { x: ch.x + Math.sin(ch.yaw) * 0.6, y: ch.y, z: ch.z + Math.cos(ch.yaw) * 0.6 }; Game.req({ k: 'trapPlace', x: p.x, y: p.y, z: p.z }, ch); ch.act = ACT.place; ch.actUntil = t + 1.0; break; }
       case 'bane': { const p = this.aimPoint(16); if (!p) { UI.toast('投げる場所が見えない', 'sys'); return; } Game.req({ k: 'cloud', x: p.x, y: p.y, z: p.z }, ch); ch.act = ACT.throw; ch.actUntil = t + 0.6; break; }
       case 'saw': UI.toast('右クリック長押しで空ぶかし、左クリックで切りつける', 'sys'); break;
@@ -5894,12 +6021,12 @@ const Player = {
     T.t = 0; T.p = T.p || 0; T.ch = ch; T.ok = 0; T.fails = 0;
     if (T.type === 'dial') {
       const P = ch.stats.prof || 3, St = ch.stats.str || 3;
-      const skill = T.kind === 'bind' ? St : P;
+      const skill = Math.min(15, T.kind === 'bind' ? St : P);
       { const _pr = skill >= 5 ? 5 : skill >= 4 ? 3 : skill >= 3 ? 1 : 0; T.need = Math.max(3, (T.kind === 'bind' ? 3 : 10) - _pr); } T.ang = Math.random() * TAU; T.speed = (T.kind === 'bind' ? 2.3 : 2.5) - skill * 0.12; T.zw = 0.36 + skill * 0.07; T.zone = Math.random() * TAU; T.lockT = 0; T.toolHp = (T.kind === 'bind' ? 100 : 150) + skill * 10; T.pressure = 0; T.pressRate = (T.kind === 'bind' ? 58 : 50) - skill * 4; T.stage = 0;
       if (T.kind === 'unlock' && ch.defId === 'sayuri' && ch.st.abil > Game.time) { T.auto = 1.1; }
     }
     if (T.type === 'mash') { T.p = T.p || 0; T.decay = T.decay == null ? 0.1 : T.decay; }
-    if (T.type === 'search') { T.lastPress = -9; T.noiseCd = 0; T.dur = 2.6 - (ch.stats.prof || 3) * 0.12; }
+    if (T.type === 'search') { T.lastPress = -9; T.noiseCd = 0; T.dur = Math.max(0.5, 2.6 - (ch.stats.prof || 3) * 0.12); }
     if (T.type === 'fuse') { const R = RNG((World.exits.fuse.door + 1) * 977 + Game.seed); T.rows = [0, 0, 0]; T.target = [R.int(1, 6), R.int(1, 6), R.int(1, 6)].map((n) => n * 5); T.sel = 0; T.lockT = 0; }
     if (T.type === 'pump') { T.press = 0; T.prog = 0; T.band = [0.6, 0.8]; }
     if (T.act) T.ch.act = T.act;
@@ -5922,7 +6049,7 @@ const Player = {
     switch (T.type) {
       case 'hold': {
         const key = T.key || (T.kind === 'healSelf' ? 'KeyR' : 'KeyE');
-        if (!I.down(key)) { this.endTask(false); return; }
+        if (T.kind !== 'healSelf' && !I.down(key)) { this.endTask(false); return; }
         T.p = T.t / T.dur;
         if (T.p >= 1) { this.endTask(true); this.finish(T, ch, t); }
         break;
@@ -5939,6 +6066,7 @@ const Player = {
         break;
       }
       case 'dial': {
+        if (I.hit('KeyQ') || I.hit('Escape')) { this.endTask(false); return; }
         if (T.auto) { T.p = T.t / T.auto; if (T.p >= 1) { this.endTask(true); this.finish(T, ch, t); } break; }
         if (T.lockT > 0) { T.lockT -= dt; break; }
         T.ang = (T.ang + T.speed * (I.down('KeyE') ? 1.75 : 1) * dt) % TAU;
@@ -6091,7 +6219,7 @@ const Player = {
   updateSpectate(dt, ch, t) {
     const alive = Game.chars.filter((c) => c.alive && (c.side === ch.side || ch.isVictim));
     if (Input.mbP[0] || Input.mbP[2] || this.spec < 0) {
-      const ids = alive.map((c) => c.id); if (ids.length) { const cur = ids.indexOf(this.spec); this.spec = ids[(cur + (Input.mbP[2] ? ids.length - 1 : 1)) % ids.length]; }
+      const ids = alive.map((c) => c.id); if (ids.length) { const cur = ids.indexOf(this.spec); if (!this._specCd || Game.time > this._specCd) { this._specCd = Game.time + 0.4; this.spec = ids[(cur + (Input.mbP[2] && !Input.isTouch ? ids.length - 1 : 1)) % ids.length]; } }
     }
     const target = Game.chars[this.spec] && Game.chars[this.spec].alive ? Game.chars[this.spec] : null;
     const cam = Render.camera;
@@ -7019,7 +7147,7 @@ const Net = {
   setupHost(peer, quick, pref) {
     this.mode = 'host'; this.peer = peer; this.myId = peer.id; this.quick = quick; this.conns.clear(); this.lastSeen.clear();
     if (quick) this.code = null;
-    const me = { pid: this.myId, name: Settings.name || '名無し', side: pref === 'family' ? 'family' : 'victim', char: null, ready: true, host: true };
+    const me = { pid: this.myId, name: Settings.name || '名無し', side: pref === 'family' ? 'family' : 'victim', char: null, ready: true, host: true, ptsMap: Settings.vPts };
     me.char = this.freeChar(me.side, pref === 'family' ? Settings.fchar : Settings.vchar, [me]);
     this.lobby = { code: this.code, quick, phase: 'lobby', diff: Settings.diff || 'normal', players: [me], countdown: quick ? 60 : null, chat: [] };
     peer.on('connection', (conn) => this.onConn(conn));
@@ -7049,7 +7177,7 @@ const Net = {
         const nV = L.players.filter((p) => p.side === 'victim').length, nF = L.players.filter((p) => p.side === 'family').length;
         let side = m.pref === 'family' ? 'family' : (m.pref === 'victim' ? 'victim' : (nV <= nF ? 'victim' : 'family'));
         if (side === 'victim' && nV >= 4) side = 'family'; if (side === 'family' && nF >= 3) side = 'victim';
-        const p = { pid: conn.peer, name: String(m.name || '名無し').slice(0, 12), side, char: null, ready: !!L.quick, host: false };
+        const p = { pid: conn.peer, name: String(m.name || '名無し').slice(0, 12), side, char: null, ready: !!L.quick, host: false, ptsMap: sanitizePtsMap(m.ptsMap) };
         p.char = this.freeChar(side, m.char, L.players);
         L.players.push(p);
         this.conns.set(conn.peer, conn);
@@ -7084,6 +7212,7 @@ const Net = {
       if ((m.side === 'victim' && n < 4) || (m.side === 'family' && n < 3)) { p.side = m.side; p.char = this.freeChar(p.side, null, L.players.filter((x) => x !== p)); }
     }
     if (m.char) { const others = L.players.filter((x) => x !== p); if (this.freeChar(p.side, m.char, others) === m.char) p.char = m.char; }
+    if (m.ptsMap) p.ptsMap = pid === this.myId ? m.ptsMap : sanitizePtsMap(m.ptsMap);
     if (m.ready != null) p.ready = !!m.ready;
     if (m.name) p.name = String(m.name).slice(0, 12);
     if (m.diff && pid === this.myId) L.diff = m.diff;
@@ -7128,7 +7257,7 @@ const Net = {
     const vSlots = vic.map((p) => ({ p, defId: p.char }));
     const freeV = VICTIMS.filter((d) => !vSlots.find((s) => s.defId === d.id));
     while (vSlots.length < 4) vSlots.push({ bot: true, defId: freeV.splice(Math.floor(Math.random() * freeV.length), 1)[0].id });
-    vSlots.slice(0, 4).forEach((s, i) => roster.push({ slot: 3 + i, side: 'victim', defId: s.defId, name: s.p ? s.p.name : 'CPU', owner: s.p ? s.p.pid : this.myId, bot: !s.p, diff }));
+    vSlots.slice(0, 4).forEach((s, i) => roster.push({ slot: 3 + i, side: 'victim', defId: s.defId, name: s.p ? s.p.name : 'CPU', owner: s.p ? s.p.pid : this.myId, bot: !s.p, diff, pts: s.p && s.p.ptsMap ? s.p.ptsMap[s.defId] : undefined }));
     return roster;
   },
   // ---- 参加する ----
@@ -7154,7 +7283,7 @@ const Net = {
       const onErr = (e) => { if (e && e.type === 'peer-unavailable') fin({ ok: false, why: 'peer-unavailable' }); };
       peer.on('error', onErr);
       try { conn = peer.connect(hostId, { reliable: true, serialization: 'json' }); } catch (e) { return fin({ ok: false, why: 'peer-unavailable' }); }
-      conn.on('open', () => conn.send({ t: 'hello', v: NET_VER, name: Settings.name || '名無し', pref, char: pref === 'family' ? Settings.fchar : Settings.vchar }));
+      conn.on('open', () => conn.send({ t: 'hello', v: NET_VER, name: Settings.name || '名無し', pref, char: pref === 'family' ? Settings.fchar : Settings.vchar, ptsMap: Settings.vPts }));
       conn.on('data', (m) => {
         if (!m) return;
         if (!done) {
@@ -7222,7 +7351,7 @@ const Net = {
   broadcast(msg) { if (this.mode !== 'host') return; for (const c of this.conns.values()) { try { if (c.open) c.send(msg); } catch (e) {} } },
   toHost(msg) { if (this.mode !== 'client' || !this.hostConn) return; try { if (this.hostConn.open) this.hostConn.send(msg); } catch (e) {} },
   send(type, data) { if (this.mode === 'client') this.toHost(Object.assign({ t: type }, data)); else if (this.mode === 'host') this.onHostData({ peer: this.myId, send: () => {} }, Object.assign({ t: type }, data)); },
-  setLobby(o) { if (this.mode === 'host') this.applySet(this.myId, o); else this.toHost(Object.assign({ t: 'set' }, o)); },
+  setLobby(o) { o = Object.assign({ ptsMap: Settings.vPts }, o); if (this.mode === 'host') this.applySet(this.myId, o); else this.toHost(Object.assign({ t: 'set' }, o)); },
   sendChat(text) { if (this.mode === 'host') this.chat(this.myId, text); else this.toHost({ t: 'chat', text }); },
   update(dt) {
     if (this.mode === 'offline') return;
@@ -7357,6 +7486,41 @@ const UI = {
     for (const d of list) box.appendChild(this.card(d, this.sel.side, { sel: d.id === this.sel.char, onClick: () => { this.sel.char = d.id; if (this.sel.side === 'victim') Settings.vchar = d.id; else Settings.fchar = d.id; saveSettings(); this.renderSelectCards(); } }));
     $('#s-note').textContent = this.sel.side === 'victim' ? '仲間3人はCPUが担当します。地下室から脱出し、4つの出口のどれかから逃げ延びてください。' : '鋸面は必ず一家に入ります。残りはCPU。被害者を全員逃がすな。';
     const sd = $('#s-side'); sd._upd && sd._upd();
+    this.ptsPanel($('#s-pts'), this.sel.side === 'victim' ? this.sel.char : null);
+  },
+  // ---------- ブラッドポイント振り分け ----------
+  ptsFx(k, n) {
+    const m = 1 + n * PT_STEP, pc = (v) => Math.round(v * 100);
+    switch (k) {
+      case 'T': return '最大体力 +' + pc(m - 1) + '%';
+      case 'S': return '物音・足音の届く範囲 -' + pc(1 - 1 / m) + '%';
+      case 'P': return '鍵開け・物色の腕 +' + pc(m - 1) + '%';
+      case 'E': return 'スタミナ量・回復 +' + pc(m - 1) + '%';
+      default: return '組み付き・こじ開けの力 +' + pc(m - 1) + '%';
+    }
+  },
+  ptsPanel(box, charId, onChange) {
+    if (!box) return;
+    const def = VICTIMS.find((d) => d.id === charId);
+    if (!def) { box.innerHTML = ''; return; }
+    Settings.vPts = Settings.vPts || {};
+    const cur = sanitizePts(Settings.vPts[charId]);
+    const used = PT_KEYS.reduce((a, k) => a + cur[k], 0);
+    const set = (k, d) => {
+      const c = sanitizePts(Settings.vPts[charId]);
+      const u = PT_KEYS.reduce((a, kk) => a + c[kk], 0);
+      c[k] = Math.max(0, Math.min(c[k] + d, c[k] + (PT_TOTAL - u)));
+      Settings.vPts[charId] = c; saveSettings();
+      this.ptsPanel(box, charId, onChange); onChange && onChange();
+    };
+    let h = '<div class="ptsbox"><div class="pt-head"><b>' + escHtml(def.name) + ' のブラッドポイント</b><span class="pt-left">残り <em>' + (PT_TOTAL - used) + '</em> / ' + PT_TOTAL + '</span><button class="btn ghost" data-pt-reset>振り直す</button></div>';
+    for (const k of PT_KEYS) {
+      const left = PT_TOTAL - used;
+      h += '<div class="pt-row"><span>' + PT_NAMES[k] + '</span><span class="pt-ctl"><button data-pt="' + k + '" data-d="-5"' + (cur[k] < 1 ? ' disabled' : '') + '>-5</button><button data-pt="' + k + '" data-d="-1"' + (cur[k] < 1 ? ' disabled' : '') + '>-1</button><button data-pt="' + k + '" data-d="1"' + (left < 1 ? ' disabled' : '') + '>+1</button><button data-pt="' + k + '" data-d="5"' + (left < 1 ? ' disabled' : '') + '>+5</button></span><span class="pt-bar"><i style="width:' + (cur[k] / PT_TOTAL * 100) + '%"></i></span><span class="pt-val">' + cur[k] + '</span><span class="pt-fx">' + this.ptsFx(k, cur[k]) + '（振った数×5%）</span></div>';
+    }
+    box.innerHTML = h + '</div>';
+    box.querySelectorAll('[data-pt]').forEach((b) => { b.onclick = () => set(b.dataset.pt, +b.dataset.d); });
+    const r = box.querySelector('[data-pt-reset]'); if (r) r.onclick = () => { Settings.vPts[charId] = sanitizePts(null); saveSettings(); this.ptsPanel(box, charId, onChange); onChange && onChange(); };
   },
   goOffline() {
     Settings.side = this.sel.side; saveSettings();
@@ -7397,7 +7561,7 @@ const UI = {
     const host = Net.mode === 'host';
     $('#l-title').textContent = L.quick ? 'クイックプレイ' : '部屋';
     $('#l-sub').textContent = host ? 'あなたが部屋の主です。空いている席はCPUが埋めます' : '部屋の主が開始するのを待っています';
-    $('#l-codebox').hidden = !!L.quick; if (window.renderPerkSlots) window.renderPerkSlots(); $('#l-code').textContent = L.code || '';
+    $('#l-codebox').hidden = !!L.quick; try { if (window.renderPerkSlots) window.renderPerkSlots(); } catch(e) { console.warn('perk render failed', e); } $('#l-code').textContent = L.code || '';
     $('#l-countbox').hidden = !(L.quick && L.countdown != null); $('#l-count').textContent = Math.max(0, Math.ceil(L.countdown || 0));
     const fam = L.players.filter((p) => p.side === 'family'), vic = L.players.filter((p) => p.side === 'victim');
     $('#l-nf').textContent = fam.length + ' / 3'; $('#l-nv').textContent = vic.length + ' / 4';
@@ -7416,6 +7580,7 @@ const UI = {
       const taken = new Set(L.players.filter((p) => p !== me && p.side === me.side).map((p) => p.char));
       for (const d of list) box.appendChild(this.card(d, me.side, { compact: true, sel: d.id === me.char, taken: taken.has(d.id), onClick: () => { if (me.side === 'victim') Settings.vchar = d.id; else Settings.fchar = d.id; saveSettings(); Net.setLobby({ char: d.id }); } }));
     }
+    this.ptsPanel($('#l-pts'), me && me.side === 'victim' ? me.char : null, () => Net.setLobby({}));
     const ls = $('#l-side'); ls._upd && ls._upd(); const ld = $('#l-diff'); ld._upd && ld._upd();
     $$('#l-diff button').forEach((b) => { b.disabled = !host; });
     $('#l-start').hidden = !host;
@@ -7452,7 +7617,7 @@ const UI = {
       ${rng('se-sens', 'マウス感度', 0.2, 3, 0.05, S.sens, (v) => (+v).toFixed(2))}
       <div class="row"><label><input type="checkbox" id="se-inv" ${S.invertY ? 'checked' : ''}> 上下反転</label></div>
       ${rng('se-fov', '視野角', 55, 95, 1, S.fov, (v) => v + '°')}
-      <div class="field"><label>画質</label><div class="seg" id="se-q"><button data-v="0">低</button><button data-v="1">中</button><button data-v="2">高</button></div></div>
+      <div class="field"><label>画質</label><div class="seg" id="se-q"><button data-v="-2">最低</button><button data-v="-1">超低</button><button data-v="0">低</button><button data-v="1">中</button><button data-v="2">高</button></div></div>
       ${rng('se-master', '全体の音量', 0, 1, 0.05, S.master, (v) => Math.round(v * 100) + '%')}
       ${rng('se-sfx', '効果音', 0, 1, 0.05, S.sfx, (v) => Math.round(v * 100) + '%')}
       ${rng('se-amb', '環境音（ヒグラシ・風）', 0, 1, 0.05, S.amb, (v) => Math.round(v * 100) + '%')}
@@ -7891,6 +8056,7 @@ const Main = {
     dt = clamp(dt, 0, 0.1);
     try {
       Input.applyTouch && Input.applyTouch();
+      Input.pollGamepad && Input.pollGamepad(dt);
       Net.update(dt);
       if (Game.phase !== 'none' && !this.paused) Game.update(dt);
       if (Game.phase === 'none') this.titleCam(dt);
@@ -7920,7 +8086,7 @@ const Main = {
     if (side === 'family') {
       fam.push({ human: true, defId: charId });
       if (charId !== 'nokomen') fam.unshift({ defId: 'nokomen' });
-    } else { vic.push({ human: true, defId: charId }); fam.push({ defId: 'nokomen' }); }
+    } else { vic.push({ human: true, defId: charId, pts: (Settings.vPts || {})[charId] }); fam.push({ defId: 'nokomen' }); }
     const freeF = FAMILY.filter((d) => !fam.find((f) => f.defId === d.id)).map((d) => d.id);
     RAND.shuffle(freeF);
     while (fam.length < 3) fam.push({ defId: freeF.shift() });
@@ -7929,7 +8095,7 @@ const Main = {
     RAND.shuffle(freeV);
     while (vic.length < 4) vic.push({ defId: freeV.shift() });
     fam.forEach((f, i) => roster.push({ slot: i, side: 'family', defId: f.defId, name: f.human ? (Settings.name || 'あなた') : 'CPU', owner: 'local', bot: !f.human, diff }));
-    vic.forEach((v, i) => roster.push({ slot: 3 + i, side: 'victim', defId: v.defId, name: v.human ? (Settings.name || 'あなた') : 'CPU', owner: 'local', bot: !v.human, diff }));
+    vic.forEach((v, i) => roster.push({ slot: 3 + i, side: 'victim', defId: v.defId, name: v.human ? (Settings.name || 'あなた') : 'CPU', owner: 'local', bot: !v.human, diff, pts: v.pts }));
     Net.mode = 'offline'; Net.myId = 'local';
     this.beginMatch({ seed: (Math.random() * 2 ** 31) | 0, roster, mode: 'offline', host: true, myId: 'local' });
   },
@@ -8011,7 +8177,7 @@ const Main = {
 // ===== タッチUI（スマホ対応） =====
 (function(){
   Input.isTouch = false;
-  Input.touch = { stick:{x:0,y:0}, lookX:0, lookY:0, keys:{}, pressed:new Set(), mb:[false,false,false], mbP:[false,false,false] };
+  Input.touch = { stick:{x:0,y:0}, lookX:0, lookY:0, keys:{}, pressed:new Set(), mb:[false,false,false], mbP:[false,false,false], mbR:[false,false,false] };
   Input.detectTouch = function(){
     try { this.isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches); } catch(e){ this.isTouch = ('ontouchstart' in window); }
     if (this.isTouch) { document.body.classList.add('touch'); this.locked = true; this.soft = true; }
@@ -8029,13 +8195,13 @@ const Main = {
     for (const k in t.keys) { if (t.keys[k]) this.keys.add(k); else this.keys.delete(k); }
     for (const k of t.pressed) this.pressed.add(k);
     t.pressed.clear();
-    for (let i = 0; i < 3; i++) { if (t.mb[i]) this.mb[i] = true; if (t.mbP[i]) this.mbP[i] = true; }
+    for (let i = 0; i < 3; i++) { this.mb[i] = !!t.mb[i]; if (t.mbP[i]) { this.mbP[i] = true; t.mbP[i] = false; } if (t.mbR[i]) { this.mbR[i] = true; t.mbR[i] = false; } }
   };
   Input.tDown = function(c){ this.touch.keys[c] = true; };
   Input.tUp = function(c){ this.touch.keys[c] = false; };
   Input.tTap = function(c){ this.touch.pressed.add(c); };
   Input.tMbDown = function(b){ this.touch.mb[b] = true; this.touch.mbP[b] = true; };
-  Input.tMbUp = function(b){ this.touch.mb[b] = false; };
+  Input.tMbUp = function(b){ this.touch.mb[b] = false; this.touch.mbR[b] = true; };
   const _reqLock = Input.requestLock;
   Input.requestLock = function(){ if (this.isTouch) return; _reqLock.call(this); };
   Input.detectTouch();
@@ -8103,7 +8269,7 @@ const Main = {
 
   const bindHold = (id, code) => {
     const b = document.getElementById(id); if (!b) return;
-    b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); Input.tDown(code); b.classList.add('on'); });
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); Input.tDown(code); Input.tTap(code); b.classList.add('on'); });
     const up = () => { Input.tUp(code); b.classList.remove('on'); };
     b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
   };
@@ -8125,8 +8291,9 @@ const Main = {
 
   bindMb('btnAtk', 0);
   bindMb('btnGrab', 2);
+  bindMb('btnRev', 2);
   bindTap('btnItem', 'KeyF');
-  bindTap('btnHeal', 'KeyR');
+  bindHold('btnHeal', 'KeyR');
   bindTap('btnDrop', 'KeyG');
   bindHold('btnMap', 'Tab');
 
@@ -8162,6 +8329,7 @@ const Main = {
     Input.tDown('KeyE'); Input.tTap('KeyE');
     btnTaskE.classList.add('on');
   });
+  const _tc2 = document.getElementById('btnTaskCancel'); if (_tc2) _tc2.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); Input.tTap('Escape'); });
   const teUp = function(){ Input.tUp('KeyE'); btnTaskE.classList.remove('on'); };
   btnTaskE.addEventListener('pointerup', teUp);
   btnTaskE.addEventListener('pointercancel', teUp);
@@ -8236,6 +8404,7 @@ const Main = {
     document.body.classList.toggle('tasking', tasking);
     document.getElementById('btnAtk').style.display = (vic || tasking) ? 'none' : 'flex';
     document.getElementById('btnGrab').style.display = (vic || tasking) ? 'none' : 'flex';
+    document.getElementById('btnRev').style.display = (!vic && !tasking && me.defId === 'nokomen') ? 'flex' : 'none';
     document.getElementById('btnItem').style.display = (vic && !tasking) ? 'flex' : 'none';
     document.getElementById('btnHeal').style.display = (vic && !tasking) ? 'flex' : 'none';
     document.getElementById('btnDrop').style.display = (vic && !tasking) ? 'flex' : 'none';
