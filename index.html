@@ -4511,8 +4511,8 @@ function sanitizePtsMap(m) {
   if (m && typeof m === 'object') { for (const d of VICTIMS) if (m[d.id]) o[d.id] = sanitizePts(m[d.id], 'victim'); for (const d of FAMILY) if (m[d.id]) o[d.id] = sanitizePts(m[d.id], 'family'); }
   return o;
 }
-// 一家は攻撃を振った直後の0.2秒、足が750%の速さになる（連続で振るたびに延長）
-const SWING_BOOST_T = 0.2, SWING_BOOST_MUL = 7.5;
+// 一家は攻撃を振った直後の0.2秒、足が175%の速さになる（連続で振るたびに延長）。ただし15秒に1度だけ、その0.2秒が750%になる
+const SWING_BOOST_T = 0.2, SWING_BOOST_MUL = 1.75, SWING_BURST_MUL = 7.5, SWING_BURST_CD = 15;
 // 派生ステータス
 function victimStats(def, pts) {
   const a = def.attrs, p = sanitizePts(pts, 'victim'), m = (k) => 1 + p[k] * PT_STEP;
@@ -4593,7 +4593,7 @@ class Char {
     this.crouch = wantCrouch && !lock;
     this.h = this.crouch ? 0.9 : this.hStand;
     let spd = 0, mag = lock ? 0 : clamp(it.mag || 0, 0, 1);
-    if (this.isFamily && this.actUntil !== this._swingSeen && (this.act === ACT.attack || this.act === ACT.heavy || this.act === ACT.saw || this.act === ACT.slam)) { this._swingSeen = this.actUntil; s.swingBoost = t + SWING_BOOST_T; }
+    if (this.isFamily && this.actUntil !== this._swingSeen && (this.act === ACT.attack || this.act === ACT.heavy || this.act === ACT.saw || this.act === ACT.slam)) { this._swingSeen = this.actUntil; const live = t < (s.swingBoost || 0) ? (s.swingMul || 1) : 1; let mul = SWING_BOOST_MUL; if (t >= (s.burstCd || 0)) { mul = SWING_BURST_MUL; s.burstCd = t + SWING_BURST_CD; } s.swingMul = Math.max(mul, live); s.swingBoost = t + SWING_BOOST_T; }
     const zone = Phys.zoneAt(this.x, this.z, this.y);
     let sprinting = false;
     if (mag > 0.05) {
@@ -4608,7 +4608,7 @@ class Char {
       if (this.defId === 'nokomen' && s.rev > 0.65) spd *= 0.93;
       if (this.defId === 'ryouriban' && s.listen > t) spd *= 0.4;
       if (it.slowMul) spd *= it.slowMul;
-      if (this.isFamily && t < (s.swingBoost || 0)) spd *= SWING_BOOST_MUL;
+      if (this.isFamily && t < (s.swingBoost || 0)) spd *= (s.swingMul || SWING_BOOST_MUL);
     }
     this.sprint = sprinting;
     // スタミナ
