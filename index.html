@@ -69,6 +69,7 @@ h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0}
 .seg button.on{background:var(--paper);color:var(--paper-ink);font-weight:700}
 .seg button:focus-visible{outline:2px solid var(--warn);outline-offset:-2px}
 /* ---- 尋ね人ポスター（被害者） ---- */
+.padfocus{outline:3px solid var(--warn)!important;outline-offset:3px;box-shadow:0 0 18px #e2b92899!important}
 .ptsbox{margin-top:16px;border:1px solid var(--line);background:var(--soot2);padding:12px 14px;border-radius:3px}
 .ptsbox .pt-head{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-bottom:8px}
 .ptsbox .pt-head b{font-family:var(--f-display);letter-spacing:.06em}
@@ -594,6 +595,7 @@ function fmtTime(sec) { sec = Math.max(0, Math.floor(sec)); const m = Math.floor
 let _uid = 1;
 const uid = () => _uid++;
 // ===== 12_input.js : キーボード・マウス入力 =====
+const KEY_ALIAS = { ArrowUp: 'KeyW', ArrowDown: 'KeyS', ArrowLeft: 'KeyA', ArrowRight: 'KeyD' };
 const Input = {
   keys: new Set(), pressed: new Set(), released: new Set(),
   mdx: 0, mdy: 0, wheel: 0,
@@ -608,15 +610,18 @@ const Input = {
       this.textFocus = false;
       if (!this.keys.has(e.code)) this.pressed.add(e.code);
       this.keys.add(e.code);
+      const al = KEY_ALIAS[e.code]; if (al) { if (!this.keys.has(al)) this.pressed.add(al); this.keys.add(al); }
+      if (this.isTouch && this.leaveTouch && /^(Key[WASDQERFCG]|Space|Arrow)/.test(e.code)) this.leaveTouch();
       if (this.gameFocus && ['Tab', 'Space', 'ArrowUp', 'ArrowDown', 'ControlLeft', 'KeyQ', 'KeyE', 'KeyF', 'KeyR', 'KeyC', 'KeyG'].includes(e.code)) e.preventDefault();
     }, { passive: false });
     window.addEventListener('keyup', (e) => {
       if (this.keys.has(e.code)) this.released.add(e.code);
       this.keys.delete(e.code);
+      const al = KEY_ALIAS[e.code]; if (al && this.keys.has(al)) { this.released.add(al); this.keys.delete(al); }
     });
     window.addEventListener('blur', () => { for (const k of this.keys) this.released.add(k); this.keys.clear(); this.mb = [false, false, false]; });
     window.addEventListener('mousemove', (e) => {
-      if (this.locked) { this.mdx += e.movementX || 0; this.mdy += e.movementY || 0; }
+      if (this.locked) { this.mdx += clamp(e.movementX || 0, -180, 180); this.mdy += clamp(e.movementY || 0, -180, 180); }
     });
     canvas.addEventListener('mousedown', (e) => {
       if (this.gameFocus && !this.locked) { this.requestLock(); return; }
@@ -658,43 +663,174 @@ const Input = {
     this.mdx = 0; this.mdy = 0; this.wheel = 0;
     this.mbP = [false, false, false]; this.mbR = [false, false, false];
   },
-  gpActive: false, gpKeys: new Set(), gpPrev: new Set(),
-  pollGamepad(dt) {
+  // ---- コントローラー（Xbox系・標準マッピング） ----
+  gpActive: false, gpRef: null, gpHeld: {}, gpMb: [false, false, false], gpPrev: new Set(), gpBlock: new Set(),
+  gpMX: 0, gpMZ: 0, gpLX: 0, gpLY: 0, gpFocus: null, gpRep: { dir: '', t: 0 }, gpStk: { u: false, d: false, l: false, r: false },
+  pickPad() {
+    let best = null, score = 0;
     const gps = (navigator.getGamepads ? navigator.getGamepads() : []);
-    let gp = null;
-    for (const g of gps) { if (g) { gp = g; break; } }
-    if (!gp) { this.gpActive = false; return; }
-    this.gpActive = true;
-    const I = this, dead = 0.35;
-    const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0, rx = gp.axes[2] || 0, ry = gp.axes[3] || 0;
+    for (const g of gps) {
+      if (!g || !g.connected || g.axes.length < 2 || g.buttons.length < 6) continue;
+      let sc = 1;
+      if (g.mapping === 'standard') sc += 4;
+      if (/xbox|xinput|045e|microsoft/i.test(g.id)) sc += 2;
+      if (g.buttons.length >= 16 && g.axes.length >= 4) sc += 1;
+      if (sc > score) { score = sc; best = g; }
+    }
+    return best;
+  },
+  axis2(x, y, dead) {
+    const m = Math.hypot(x, y); if (m <= dead) return [0, 0];
+    const k = Math.min(1, (m - dead) / (1 - dead));
+    return [x / m * k, y / m * k];
+  },
+  gpHold(code, on) {
+    const was = !!this.gpHeld[code];
+    if (on && !was) { this.gpHeld[code] = true; if (!this.keys.has(code)) this.pressed.add(code); this.keys.add(code); }
+    else if (!on && was) { this.gpHeld[code] = false; this.keys.delete(code); this.released.add(code); }
+  },
+  gpRelease() {
+    for (const k in this.gpHeld) if (this.gpHeld[k]) { this.keys.delete(k); this.released.add(k); }
+    this.gpHeld = {};
+    if (this.gpMb[0]) { this.mb[0] = false; this.mbR[0] = true; }
+    if (this.gpMb[2]) { this.mb[2] = false; this.mbR[2] = true; }
+    this.gpMb = [false, false, false];
+  },
+  gpClearFocus() { if (this.gpFocus) { this.gpFocus.classList.remove('padfocus'); this.gpFocus = null; } },
+  pollGamepad(dt) {
+    dt = dt || 0.0167;
+    this.gpMX = 0; this.gpMZ = 0; this.gpLX = 0; this.gpLY = 0;
+    const gp = this.pickPad();
+    if (!gp) { if (this.gpActive) { this.gpActive = false; this.gpRelease(); this.gpClearFocus(); } this.gpRef = null; return; }
+    if (!this.gpActive) { this.gpActive = true; try { UI.toast('コントローラー接続', 'sys'); } catch (e) {} }
+    this.gpRef = gp;
     const held = (i) => { const b = gp.buttons[i]; return !!b && (b.pressed || b.value > 0.5); };
-    const want = new Set();
-    if (ay < -dead) want.add('KeyW'); if (ay > dead) want.add('KeyS');
-    if (ax < -dead) want.add('KeyA'); if (ax > dead) want.add('KeyD');
-    if (held(5)) want.add('ShiftLeft');
-    for (const k of this.gpKeys) { if (!want.has(k)) { I.keys.delete(k); this.gpKeys.delete(k); } }
-    for (const k of want) { if (!this.gpKeys.has(k)) { I.keys.add(k); this.gpKeys.add(k); } }
-    const ls = 2.6 * (dt || 0.0167) * 60;
-    I.mdx += rx * ls; I.mdy += ry * ls;
     const pressed = new Set();
     for (let i = 0; i < gp.buttons.length; i++) if (held(i)) pressed.add(i);
-    const prev = this.gpPrev;
-    const tap = (i) => pressed.has(i) && !prev.has(i);
-    const rt = held(7), lt = held(6);
-    if (rt && !I.mb[0]) I.mbP[0] = true;
-    if (lt && !I.mb[2]) I.mbP[2] = true;
-    if (!rt && I.mb[0]) I.mbR[0] = true;
-    if (!lt && I.mb[2]) I.mbR[2] = true;
-    I.mb[0] = rt; I.mb[2] = lt;
-    if (tap(4)) I.pressed.add('KeyC');
-    if (tap(0)) I.pressed.add('KeyE');
-    if (tap(2)) I.pressed.add('KeyQ');
-    if (tap(1)) I.pressed.add('KeyR');
-    if (tap(3)) I.pressed.add('Tab');
-    if (tap(9)) I.pressed.add('Escape');
-    this.gpPrev = pressed;
-    if (!this._gpNotified) { this._gpNotified = true; try { UI.toast('コントローラー接続', 'sys'); } catch (e) {} }
+    const [lx, ly] = this.axis2(gp.axes[0] || 0, gp.axes[1] || 0, 0.22);
+    const [rx, ry] = this.axis2(gp.axes[2] || 0, gp.axes[3] || 0, 0.16);
+    // メニュー中は十字キー／スティックで選んでAで決定
+    if (typeof UI !== 'undefined' && UI.cur) {
+      this.gpRelease(); this.gpBlock = new Set(pressed);
+      try { this.gpMenu(dt, pressed, lx, ly, ry); } catch (e) {}
+      this.gpPrev = pressed; return;
+    }
+    this.gpClearFocus();
+    for (const b of this.gpBlock) if (!pressed.has(b)) this.gpBlock.delete(b);
+    const ep = new Set([...pressed].filter((b) => !this.gpBlock.has(b)));
+    const prev = this.gpPrev, has = (i) => ep.has(i), tap = (i) => ep.has(i) && !prev.has(i);
+    const task = typeof Player !== 'undefined' ? Player.task : null, fuse = !!(task && task.type === 'fuse');
+    const P = (c) => this.pressed.add(c);
+    // 移動（アナログ）と視点（なめらかな曲線）
+    this.gpMX = lx; this.gpMZ = -ly;
+    const curve = (v) => Math.sign(v) * Math.pow(Math.abs(v), 1.7), rate = 3.4 * (Settings.padSens || 1) * dt;
+    this.gpLX = curve(rx) * rate; this.gpLY = curve(ry) * rate;
+    // 押している間だけ有効なもの
+    this.gpHold('KeyE', has(0));
+    this.gpHold('ShiftLeft', has(5) || has(10));
+    this.gpHold('Tab', has(8) || (!fuse && has(12)));
+    // 押した瞬間
+    if (tap(0)) P('Space');
+    if (tap(2)) P('KeyQ');
+    if (tap(3)) P('KeyF');
+    if (tap(4)) P('KeyC');
+    if (tap(1)) P(task ? 'Escape' : 'KeyR');
+    const stk = { u: ly < -0.6, d: ly > 0.6, l: lx < -0.6, r: lx > 0.6 };
+    if (fuse) {
+      if (tap(12) || (stk.u && !this.gpStk.u)) P('KeyW');
+      if (tap(13) || (stk.d && !this.gpStk.d)) P('KeyS');
+      if (tap(14) || (stk.l && !this.gpStk.l)) P('KeyA');
+      if (tap(15) || (stk.r && !this.gpStk.r)) P('KeyD');
+    } else {
+      if (tap(13)) P('KeyG');
+      if (tap(14)) P('KeyR');
+      if (tap(15)) P('Space');
+    }
+    this.gpStk = stk;
+    if (tap(9)) { for (const type of ['keydown', 'keyup']) window.dispatchEvent(new KeyboardEvent(type, { code: 'Escape', key: 'Escape', bubbles: true })); }
+    // トリガー：RT＝左クリック、LT＝右クリック（マウスの押下は消さない）
+    const rt = has(7), lt = has(6), mb = this.gpMb;
+    if (rt && !mb[0]) { this.mb[0] = true; this.mbP[0] = true; }
+    if (!rt && mb[0]) { this.mb[0] = false; this.mbR[0] = true; }
+    if (lt && !mb[2]) { this.mb[2] = true; this.mbP[2] = true; }
+    if (!lt && mb[2]) { this.mb[2] = false; this.mbR[2] = true; }
+    mb[0] = rt; mb[2] = lt;
+    this.gpPrev = ep;
+    try { Haptic.frame(dt); } catch (e) {}
   },
+  // メニュー操作：十字キー／左スティックで移動、A=決定、B=戻る、右スティック=スクロール
+  gpMenu(dt, pressed, lx, ly, ry) {
+    const scr = document.getElementById(UI.cur); if (!scr || scr.hidden) return;
+    const prev = this.gpPrev, tap = (i) => pressed.has(i) && !prev.has(i);
+    if (tap(9) && UI.cur === 'scr-pause') { UI.resume(); return; }
+    const vis = (e) => { const r = e.getBoundingClientRect(); return r.width > 4 && r.height > 4 && !e.closest('[hidden]') && getComputedStyle(e).visibility !== 'hidden'; };
+    let list = [...scr.querySelectorAll('button:not([disabled]), a[href], input:not([type=hidden]):not([disabled]), select, textarea, .poster, .ticket, [data-v], [data-pane]')].filter(vis);
+    list = list.filter((e) => !list.some((o) => o !== e && e.contains(o)));
+    if (!list.length) return;
+    if (!this.gpFocus || !list.includes(this.gpFocus)) {
+      this.gpClearFocus();
+      this.gpFocus = list.find((e) => e.matches('.tag.primary, .btn.blood')) || list[0];
+      this.gpFocus.classList.add('padfocus'); this.gpFocus.scrollIntoView({ block: 'nearest' });
+    }
+    const cur = this.gpFocus;
+    // 方向入力（押しっぱなしで連打）
+    let dir = '';
+    if (pressed.has(12) || ly < -0.6) dir = 'u'; else if (pressed.has(13) || ly > 0.6) dir = 'd'; else if (pressed.has(14) || lx < -0.6) dir = 'l'; else if (pressed.has(15) || lx > 0.6) dir = 'r';
+    const R = this.gpRep; let go = false;
+    if (!dir) { R.dir = ''; R.t = 0; } else if (dir !== R.dir) { R.dir = dir; R.t = 0.38; go = true; } else { R.t -= dt; if (R.t <= 0) { R.t = 0.12; go = true; } }
+    if (go) {
+      if ((dir === 'l' || dir === 'r') && cur.matches('input[type=range]')) {
+        const st = +cur.step || 1, d = (dir === 'r' ? 1 : -1) * st;
+        cur.value = Math.max(+cur.min, Math.min(+cur.max, +cur.value + d)); cur.dispatchEvent(new Event('input', { bubbles: true })); cur.dispatchEvent(new Event('change', { bubbles: true }));
+      } else {
+        const r0 = cur.getBoundingClientRect(), cx = r0.left + r0.width / 2, cy = r0.top + r0.height / 2;
+        const v = { u: [0, -1], d: [0, 1], l: [-1, 0], r: [1, 0] }[dir];
+        let best = null, bs = 1e9;
+        for (const e of list) {
+          if (e === cur) continue;
+          const r = e.getBoundingClientRect(), ex = r.left + r.width / 2 - cx, ey = r.top + r.height / 2 - cy;
+          const along = ex * v[0] + ey * v[1], perp = Math.abs(ex * v[1] - ey * v[0]);
+          if (along <= 2) continue;
+          const sc = along + perp * 2.2;
+          if (sc < bs) { bs = sc; best = e; }
+        }
+        if (best) { cur.classList.remove('padfocus'); this.gpFocus = best; best.classList.add('padfocus'); best.scrollIntoView({ block: 'nearest' }); }
+      }
+    }
+    if (Math.abs(ry) > 0.2) scr.scrollTop += ry * 700 * dt;
+    if (tap(0)) {
+      if (cur.matches('input:not([type=range]):not([type=checkbox]), textarea')) cur.focus(); else if (cur.matches('select')) cur.focus(); else cur.click();
+    }
+    if (tap(1)) {
+      const btns = [...scr.querySelectorAll('button, a[href]')].filter(vis);
+      const back = btns.find((e) => /back|close|cancel|resume/i.test(e.id || '')) || btns.find((e) => /戻る|もどる|閉じる|とじる|やめる|再開/.test(e.textContent));
+      if (back) back.click();
+    }
+  },
+};
+// ---- コントローラーの振動（設定の強さで全体を調整） ----
+const Haptic = {
+  lvl: 0, until: 0,
+  pulse(strong, weak, ms) {
+    const k = typeof Settings !== 'undefined' ? +Settings.rumble : 0.8;
+    if (!(k > 0)) return;
+    const gp = Input.gpRef; if (!gp) return;
+    const sg = clamp(strong * k, 0, 1), wk = clamp(weak * k, 0, 1), lvl = Math.max(sg, wk);
+    if (lvl < 0.02) return;
+    const now = performance.now();
+    if (now < this.until && lvl < this.lvl * 0.7) return;
+    this.lvl = lvl; this.until = now + ms;
+    try {
+      const a = gp.vibrationActuator;
+      if (a && a.playEffect) a.playEffect(a.type || 'dual-rumble', { startDelay: 0, duration: ms, weakMagnitude: wk, strongMagnitude: sg });
+      else if (gp.hapticActuators && gp.hapticActuators[0] && gp.hapticActuators[0].pulse) gp.hapticActuators[0].pulse(lvl, ms);
+    } catch (e) {}
+  },
+  frame() { // 画面が揺れている間は持続的に震わせる
+    const sh = typeof Player !== 'undefined' ? Player.shake : 0;
+    if (sh > 0.15 && performance.now() >= this.until) this.pulse(Math.min(1, sh * 0.5), Math.min(1, sh * 0.8), 120);
+  },
+  test() { this.pulse(0.9, 0.6, 450); },
 };
 // ===== 14_audio.js : 手続き合成サウンド（Web Audio） =====
 const Sound = {
@@ -922,6 +1058,7 @@ const Sound = {
       case 'spark': { for (let i = 0; i < 9; i++) this.burst(d, t + R() * 0.35, 0.01 + R() * 0.02, 'highpass', 4000, 0.7, 0.5 + R() * 0.5); this.tone(d, t, 0.3, 'square', 100, 100, 0.05); break; }
       case 'fuse_ok': this.burst(d, t, 0.05, 'lowpass', 600, 1, 0.6); this.tone(d, t + 0.05, 0.6, 'sawtooth', 100, 100, 0.06); break;
       case 'stab': this.burst(d, t, 0.08, 'bandpass', 900, 2, 0.8); this.burst(d, t + 0.03, 0.15, 'bandpass', 400, 3, 0.6, 'pink'); break;
+      case 'bell': for (let i = 0; i < 3; i++) this.tone(d, t + i * 0.09, 0.55, 'sine', 1560 + i * 45, 1500, 0.26); break;
       case 'drink': for (let i = 0; i < 4; i++) this.tone(d, t + i * 0.18, 0.09, 'sine', 300 + R() * 80, 180, 0.25); break;
       case 'poison': { const n = this.noise('pink'), f = this.filt('bandpass', 1200, 1), g = this.gain(0); n.connect(f); f.connect(g); g.connect(d); this.env(g, t, 0.15, 0.5, 1.2); n.start(t); n.stop(t + 1.5); this.burst(d, t, 0.05, 'bandpass', 2600, 6, 0.6); break; }
       case 'glass': for (let i = 0; i < 6; i++) this.tone(d, t + R() * 0.12, 0.25, 'sine', 2500 + R() * 2500, 2400, 0.1); this.burst(d, t, 0.06, 'highpass', 3000, 1, 0.7); break;
@@ -4455,6 +4592,8 @@ const VICTIMS = [
     feature: '耳がいい。物音の主をすぐに当てる。', look: { skin: 0xdcb28e, hair: 0x221812, hairStyle: 'long', top: 0x8a6a3a, topType: 'vest', bottom: 0x4a5a78, shoes: 0x3a2a1a, glasses: true, camera: true, h: 1.0 } },
   { id: 'dosukoi', name: '土佐駒 武将', kana: 'どすこい ぶしょう', title: '元相撲力士', age: 28, female: false, attrs: { T: 4, E: 2, S: 1, St: 5, P: 4 }, ability: 'dosukoi',
     feature: 'ドスコイ！の掛け声で一家を怯ませる。回復薬で体が強化される。', look: { skin: 0xe0b090, hair: 0x1a1210, hairStyle: 'topknot', top: 0x3a2a1a, topType: 'mawashi', bottom: 0x2a1a0a, shoes: 0x1a1008, h: 1.12, w: 1.45 } },
+  { id: 'akari', name: '結城 灯', kana: 'ゆうき あかり', title: '演劇部', age: 19, female: true, attrs: { T: 2, E: 3, S: 4, St: 2, P: 4 }, ability: 'bell',
+    feature: '鈴を投げて遠くで鳴らし、一家の注意をそらす。', look: { skin: 0xf2d0b4, hair: 0x6a3420, hairStyle: 'short', top: 0xc8704a, topType: 'tshirt', bottom: 0x35405a, shoes: 0x7a4a30, band: 0x3a8a74, h: 0.95 } },
 ];
 const FAMILY = [
   { id: 'nokomen', name: '鬼塚 権三', alias: '鋸面', title: '長男', attrs: { Sav: 5, E: 3, St: 5, BH: 2 }, ability: 'saw', size: 'large', required: true,
@@ -4467,6 +4606,8 @@ const FAMILY = [
     feature: '足跡を追う。走ったまま扉を蹴破る。', look: { skin: 0xb07e5a, hair: 0x1a1612, hairStyle: 'short', top: 0x5a6040, topType: 'work', bottom: 0x4a4430, shoes: 0x2a2018, hat: 'sugegasa', h: 1.03, w: 1.08, weapon: 'nata' } },
   { id: 'dokumusume', name: '鬼塚 お菊', alias: '毒娘', title: '長女', attrs: { Sav: 2, E: 4, St: 2, BH: 4 }, ability: 'bane', size: 'small',
     feature: '毒の霧をまき、拾い物に毒を仕込む。隙間や這い穴を抜けられる。', look: { skin: 0xd8c4b0, hair: 0x08080a, hairStyle: 'yurei', top: 0xd8d4c8, topType: 'yukata', bottom: 0xd8d4c8, shoes: 0x3a2a1a, h: 0.94, w: 0.85, weapon: 'knife', female: true, bottle: true } },
+  { id: 'chouchin', name: '鬼塚 ハツ', alias: '提灯婆', title: '祖母', attrs: { Sav: 2, E: 3, St: 2, BH: 5 }, ability: 'lantern', size: 'small',
+    feature: '提灯を掲げ、近くの被害者を壁越しに見つけ出す。小柄で隙間や這い穴を抜けられる。', look: { skin: 0xc4b09a, hair: 0xd6d2ca, hairStyle: 'short', top: 0x5a2a2a, topType: 'hanten', bottom: 0x2a2420, shoes: 0x1a1410, band: 0x8a1a12, h: 0.86, w: 0.88, weapon: 'sickle', female: true, old: true } },
 ];
 const GRANDPA = { name: '大爺様', title: '先代当主' };
 const ITEMS = {
@@ -4488,6 +4629,8 @@ const ABIL = {
   hunt: { name: '追跡', desc: '一定時間、被害者の残した足跡が見える。', dur: 15, cd: 45 },
   bane: { name: '毒霧', desc: '狙った場所に毒の瓶を投げ、毒霧を広げる。Eで入れ物や拾い物に毒を仕込める。', dur: 25, cd: 35 },
   dosukoi: { name: 'ドスコイ', desc: '跳ね上がり、近くの一家を6秒間怯ませる。回復薬使用で15秒間能力強化。', dur: 6, cd: 68 },
+  bell: { name: '身代わりの鈴', desc: '狙った場所に鈴を投げ、約3秒間鳴らして一家の注意を引きつける。', dur: 0, cd: 60 },
+  lantern: { name: '提灯の灯', desc: '提灯を高く掲げ、近く(18m)の被害者を6秒間壁越しに見つけ出す。隠れている者は見えない。', dur: 6, cd: 50 },
 };
 const EXIT_INFO = {
   fuse: { name: '配電盤の出口', where: '地下・配電盤の間', how: 'ヒューズを配電盤に差し込み、電流を合わせるとシャッターが開く。' },
@@ -4593,7 +4736,7 @@ class Char {
     this.crouch = wantCrouch && !lock;
     this.h = this.crouch ? 0.9 : this.hStand;
     let spd = 0, mag = lock ? 0 : clamp(it.mag || 0, 0, 1);
-    if (this.isFamily && this.actUntil !== this._swingSeen && (this.act === ACT.attack || this.act === ACT.heavy || this.act === ACT.saw || this.act === ACT.slam)) { this._swingSeen = this.actUntil; const live = t < (s.swingBoost || 0) ? (s.swingMul || 1) : 1; let mul = SWING_BOOST_MUL; if (t >= (s.burstCd || 0)) { mul = SWING_BURST_MUL; s.burstCd = t + SWING_BURST_CD; } s.swingMul = Math.max(mul, live); s.swingBoost = t + SWING_BOOST_T; }
+    if (this.isFamily && this.actUntil !== this._swingSeen && (this.act === ACT.attack || this.act === ACT.heavy || this.act === ACT.saw || this.act === ACT.slam)) { this._swingSeen = this.actUntil; const live = t < (s.swingBoost || 0) ? (s.swingMul || 1) : 1; let mul = SWING_BOOST_MUL; if (t >= (s.burstCd || 0)) { mul = SWING_BURST_MUL; s.burstCd = t + SWING_BURST_CD; } s.swingMul = Math.max(mul, live); s.swingBoost = t + SWING_BOOST_T; if (Game.isLocalOwner(this)) Haptic.pulse(mul >= SWING_BURST_MUL ? 0.9 : 0.35, 0.5, mul >= SWING_BURST_MUL ? 170 : 90); }
     const zone = Phys.zoneAt(this.x, this.z, this.y);
     let sprinting = false;
     if (mag > 0.05) {
@@ -5671,6 +5814,13 @@ const Rules = {
         this.later(0.55, () => Game.emit({ e: 'cloud', i, x: +r.x.toFixed(2), y: +r.y.toFixed(2), z: +r.z.toFixed(2), u: Game.time + ABIL.bane.dur }));
         break;
       }
+      case 'bell': {
+        if (ch.defId !== 'akari' || !ch.alive || ch.st.abilCd > t) break;
+        if (Math.hypot(r.x - ch.x, r.z - ch.z) > 24) break;
+        this.st(ch, { abilCd: t + ABIL.bell.cd });
+        for (let i = 0; i < 4; i++) this.later(0.5 + i * 0.9, () => { Game.emit({ e: 'sfx', n: 'bell', x: +r.x.toFixed(2), y: +(r.y + 0.5).toFixed(2), z: +r.z.toFixed(2), l: levelOfY(r.y + 0.3) }); this.noise(r.x, r.y, r.z, 26, 'bell', null); });
+        break;
+      }
       case 'poison': {
         if (ch.defId !== 'dokumusume' || ch.st.charges <= 0) break;
         if (r.kind === 'cont') { const c = W.containers[r.i]; if (!c || c.searched || c.poisoned || !this.near(ch, c.x, c.y, c.z, 2.2, 2)) break; c.poisoned = true; Game.emit({ e: 'cont', i: c.id, p: 1 }); }
@@ -5700,11 +5850,19 @@ const Rules = {
       case 'listen': this.st(ch, { abil: t + A.dur, abilCd: t + A.cd * (ch.isFamily ? 0.7 : 1) }); break;
       case 'seek': this.st(ch, { listen: t + A.dur, abilCd: t + A.cd * (ch.isFamily ? 0.7 : 1) }); break;
       case 'hunt': this.st(ch, { abil: t + A.dur, abilCd: t + A.cd * (ch.isFamily ? 0.7 : 1) }); break;
+      case 'lantern': {
+        this.st(ch, { abil: t + A.dur, abilCd: t + A.cd * 0.7 });
+        ch.act = ACT.listen; ch.actUntil = t + 1.0;
+        const found = Game.chars.filter((v) => v.isVictim && v.alive && v.st.hidden < 0 && Math.hypot(v.x - ch.x, v.z - ch.z) < 18 && Math.abs(v.y - ch.y) < 4).map((v) => v.id);
+        if (found.length) Game.emit({ e: 'rev', c: found, u: t + A.dur, by: 'lantern' });
+        Game.emit({ e: 'sfx', n: 'bell', x: +ch.x.toFixed(2), y: +(ch.y + 1.2).toFixed(2), z: +ch.z.toFixed(2), l: ch.lvl });
+        break;
+      }
     }
   },
 };
 // ===== 46_player.js : 操作・カメラ・インタラクション・ミニゲームの進行 =====
-const Settings = Object.assign({ vPts: {}, sens: 1.0, invertY: false, fov: 72, quality: 2, master: 0.8, sfx: 1, amb: 0.7, mus: 0.6, name: '', diff: 'normal', side: 'victim', vchar: 'sayuri', fchar: 'ryouriban', vPerks: [null,null,null], fPerks: [null,null,null], gPerk: null,
+const Settings = Object.assign({ vPts: {}, padSens: 1.0, rumble: 0.8, sens: 1.0, invertY: false, fov: 72, quality: 2, master: 0.8, sfx: 1, amb: 0.7, mus: 0.6, name: '', diff: 'normal', side: 'victim', vchar: 'sayuri', fchar: 'ryouriban', vPerks: [null,null,null], fPerks: [null,null,null], gPerk: null,
 
   
  peerHost: '', peerPort: '', peerPath: '/', peerSecure: true, ice: '' }, Store.get('settings', {}));
@@ -5842,6 +6000,10 @@ const Player = {
       this.camYaw -= I.mdx * k;
       this.camPitch = clamp(this.camPitch + I.mdy * k * (Settings.invertY ? 1 : -1), -1.15, 1.2);
     }
+    if (!uiBlock && (I.gpLX || I.gpLY)) {
+      this.camYaw -= I.gpLX;
+      this.camPitch = clamp(this.camPitch + I.gpLY * (Settings.invertY ? 1 : -1), -1.15, 1.2);
+    }
     if (!ch.alive) { this.updateSpectate(dt, ch, t); return; }
     const it = this.it;
     it.dx = 0; it.dz = 0; it.mag = 0; it.sprint = false; it.crouch = ch.crouch; it.face = null; it.slowMul = 1;
@@ -5852,10 +6014,11 @@ const Player = {
     } else if (!uiBlock && playing && this.task && this.task.walkable) {
       if (I.down('KeyW')) mz += 1; if (I.down('KeyS')) mz -= 1; if (I.down('KeyA')) mx -= 1; if (I.down('KeyD')) mx += 1;
     }
+    if (!uiBlock && playing && (!this.task || this.task.walkable)) { mx += I.gpMX; mz += I.gpMZ; }
     const fwd = { x: Math.sin(this.camYaw), z: Math.cos(this.camYaw) }, right = { x: -Math.cos(this.camYaw), z: Math.sin(this.camYaw) };
     let dx = fwd.x * mz + right.x * mx, dz = fwd.z * mz + right.z * mx;
     const L = Math.hypot(dx, dz);
-    if (L > 0.01) { dx /= L; dz /= L; it.mag = 1; }
+    if (L > 0.01) { dx /= L; dz /= L; it.mag = Math.min(1, Math.hypot(mx, mz)); }
     it.dx = dx; it.dz = dz;
     if (!uiBlock && playing) {
       it.sprint = I.down('ShiftLeft') || I.down('ShiftRight');
@@ -5979,7 +6142,8 @@ const Player = {
     switch (ch.def.ability) {
       case 'focus': if (ch.stamina < 30) { UI.toast('スタミナが足りない', 'sys'); return; } ch.stamina -= 30; Game.req({ k: 'abil' }, ch); break;
       case 'tackle': if (ch.stamina < 20) { UI.toast('スタミナが足りない', 'sys'); return; } ch.stamina -= 20; this.dashUntil = t + 0.85; this.dashDir = { x: Math.sin(this.camYaw), z: Math.cos(this.camYaw) }; Game.req({ k: 'abil' }, ch); break;
-      case 'numb': case 'sprint': case 'listen': case 'seek': case 'hunt': case 'dosukoi': Game.req({ k: 'abil' }, ch); if (ch.def.ability === 'seek') { ch.act = ACT.listen; ch.actUntil = t + A.dur; } if (ch.def.ability === 'hunt') { ch.act = ACT.track; ch.actUntil = t + 1.2; } break;
+      case 'bell': { const p = this.aimPoint(18); if (!p) { UI.toast('投げる場所が見えない', 'sys'); return; } Game.req({ k: 'bell', x: p.x, y: p.y, z: p.z }, ch); ch.act = ACT.throw; ch.actUntil = t + 0.6; break; }
+      case 'lantern': case 'numb': case 'sprint': case 'listen': case 'seek': case 'hunt': case 'dosukoi': Game.req({ k: 'abil' }, ch); if (ch.def.ability === 'seek') { ch.act = ACT.listen; ch.actUntil = t + A.dur; } if (ch.def.ability === 'hunt') { ch.act = ACT.track; ch.actUntil = t + 1.2; } break;
       case 'trap': { if (!this.cdOk('trapPlace', 2)) return; const p = { x: ch.x + Math.sin(ch.yaw) * 0.6, y: ch.y, z: ch.z + Math.cos(ch.yaw) * 0.6 }; Game.req({ k: 'trapPlace', x: p.x, y: p.y, z: p.z }, ch); ch.act = ACT.place; ch.actUntil = t + 1.0; break; }
       case 'bane': { const p = this.aimPoint(16); if (!p) { UI.toast('投げる場所が見えない', 'sys'); return; } Game.req({ k: 'cloud', x: p.x, y: p.y, z: p.z }, ch); ch.act = ACT.throw; ch.actUntil = t + 0.6; break; }
       case 'saw': UI.toast('右クリック長押しで空ぶかし、左クリックで切りつける', 'sys'); break;
@@ -6801,6 +6965,7 @@ const AI = {
       if (ab === 'sprint' && danger && td < 12) Rules.onReq(ch, { k: 'abil' });
       if (ab === 'numb' && danger && td < 6) Rules.onReq(ch, { k: 'abil' });
       if (ab === 'listen' && !danger && Math.random() < 0.06) Rules.onReq(ch, { k: 'abil' });
+      if (ab === 'bell' && danger && threat && td > 4 && td < 16) Rules.onReq(ch, { k: 'bell', x: threat.x + (threat.x - ch.x) * 0.4, y: threat.y, z: threat.z + (threat.z - ch.z) * 0.4 });
       if (ab === 'tackle') { for (const v of Game.chars) if (v.isVictim && v !== ch && v.st.grabbedBy >= 0) { const f = Game.chars[v.st.grabbedBy]; if (f && Math.hypot(f.x - ch.x, f.z - ch.z) < 6) { ch.yaw = Math.atan2(f.x - ch.x, f.z - ch.z); this.tackle(b, f, t); } } if (threat && td < 2.4 && threat.defId !== 'nokomen' && Math.random() < 0.4) this.tackle(b, threat, t); }
     }
     // 背後から刺す（骨片）
@@ -6954,6 +7119,7 @@ const AI = {
     if (ch.st.abilCd <= t) {
       if (ab === 'seek' && Math.random() < 0.25) { Rules.onReq(ch, { k: 'abil' }); ch.act = ACT.listen; ch.actUntil = t + 7; b.listenUntil = t + 7; }
       if (ab === 'hunt' && Math.random() < 0.2) { Rules.onReq(ch, { k: 'abil' }); b.hunting = t + 15; }
+      if (ab === 'lantern' && Math.random() < 0.2) Rules.onReq(ch, { k: 'abil' });
     }
     // 雑務
     if (b.state === 'duty' && b.path) return;
@@ -7611,7 +7777,12 @@ const UI = {
         <kbd>W A S D</kbd><span>移動</span><kbd>マウス</kbd><span>視点</span><kbd>Shift</kbd><span>走る</span><kbd>C ／ Ctrl</kbd><span>しゃがむ（切替／押す間）</span>
         <kbd>E</kbd><span>調べる・開ける・もがく</span><kbd>Q</kbd><span>能力</span><kbd>Space</kbd><span>乗り越える</span>
         <kbd>F</kbd><span>骨片で刺す（被害者）／南京錠・毒を仕込む（一家）</span><kbd>R</kbd><span>気付け薬を飲む</span><kbd>G</kbd><span>持ち物を捨てる</span>
-        <kbd>左クリック</kbd><span>攻撃（長押しで強攻撃）</span><kbd>右クリック</kbd><span>組み付く／鋸面は空ぶかし</span><kbd>Tab</kbd><span>見取り図</span><kbd>Esc</kbd><span>一時停止</span></div></div>
+        <kbd>左クリック</kbd><span>攻撃（長押しで強攻撃）</span><kbd>右クリック</kbd><span>組み付く／鋸面は空ぶかし</span><kbd>Tab</kbd><span>見取り図</span><kbd>Esc</kbd><span>一時停止</span></div>
+        <h3 style="margin-top:14px">コントローラー（Xbox）</h3><div class="keys">
+        <kbd>左スティック</kbd><span>移動（倒し具合で歩き／走り）</span><kbd>右スティック</kbd><span>視点</span><kbd>RB ／ L3</kbd><span>走る</span><kbd>LB</kbd><span>しゃがむ（切替）</span>
+        <kbd>A</kbd><span>調べる・開ける・もがく・乗り越える（長押し対応）</span><kbd>B</kbd><span>気付け薬／ミニゲームをやめる</span><kbd>X</kbd><span>能力</span><kbd>Y</kbd><span>骨片で刺す・仕込む</span>
+        <kbd>RT ／ LT</kbd><span>攻撃（長押しで強攻撃）／組み付く・空ぶかし</span><kbd>十字キー</kbd><span>上＝見取り図（押す間）、下＝持ち物を捨てる、左＝気付け薬、右＝乗り越える</span><kbd>Back</kbd><span>見取り図</span><kbd>Start</kbd><span>一時停止</span>
+        <kbd>メニュー</kbd><span>十字キー／左スティックで選び、Aで決定、Bで戻る</span></div></div>
       <div style="grid-column:1/-1"><h3>出口</h3><div class="exits">${ex}</div></div>`;
   },
   // ---------- 設定 ----------
@@ -7622,6 +7793,9 @@ const UI = {
       <div class="field"><label for="se-name">名前</label><input id="se-name" class="input" maxlength="12" value="${escHtml(S.name || '')}"></div>
       ${rng('se-sens', 'マウス感度', 0.2, 3, 0.05, S.sens, (v) => (+v).toFixed(2))}
       <div class="row"><label><input type="checkbox" id="se-inv" ${S.invertY ? 'checked' : ''}> 上下反転</label></div>
+      ${rng('se-pad', 'コントローラー視点感度', 0.3, 2.5, 0.05, S.padSens, (v) => (+v).toFixed(2))}
+      ${rng('se-rum', 'コントローラーの振動の強さ（0で振動なし）', 0, 1, 0.05, S.rumble, (v) => Math.round(v * 100) + '%')}
+      <div class="row"><button class="btn" id="se-rum-test" type="button">振動テスト</button><span class="small" id="se-pad-st"></span></div>
       ${rng('se-fov', '視野角', 55, 95, 1, S.fov, (v) => v + '°')}
       <div class="field"><label>画質</label><div class="seg" id="se-q"><button data-v="-2">最低</button><button data-v="-1">超低</button><button data-v="0">低</button><button data-v="1">中</button><button data-v="2">高</button></div></div>
       ${rng('se-master', '全体の音量', 0, 1, 0.05, S.master, (v) => Math.round(v * 100) + '%')}
@@ -7637,6 +7811,10 @@ const UI = {
     const live = (id, key, fmt, num = true) => { const e = $('#' + id); e.addEventListener('input', () => { S[key] = num ? +e.value : e.value; const v = $('#' + id + '-v'); if (v) v.textContent = fmt(e.value); Main.applySettings(); }); };
     live('se-sens', 'sens', (v) => (+v).toFixed(2)); live('se-fov', 'fov', (v) => v + '°'); live('se-master', 'master', (v) => Math.round(v * 100) + '%'); live('se-sfx', 'sfx', (v) => Math.round(v * 100) + '%'); live('se-amb', 'amb', (v) => Math.round(v * 100) + '%'); live('se-mus', 'mus', (v) => Math.round(v * 100) + '%');
     $('#se-inv').addEventListener('change', (e) => { S.invertY = e.target.checked; });
+    live('se-pad', 'padSens', (v) => (+v).toFixed(2)); live('se-rum', 'rumble', (v) => Math.round(v * 100) + '%');
+    const padSt = () => { $('#se-pad-st').textContent = Input.gpRef ? '接続中：' + Input.gpRef.id.slice(0, 40) : 'コントローラー未接続（ボタンを1つ押すと認識されます）'; };
+    padSt(); $('#se-rum').addEventListener('change', () => { padSt(); Haptic.test(); });
+    $('#se-rum-test').addEventListener('click', () => { padSt(); Haptic.test(); });
     $('#se-name').addEventListener('input', (e) => { S.name = e.target.value.trim(); for (const id of ['q-name', 'j-name']) $('#' + id).value = S.name; });
     for (const [id, key] of [['se-ph', 'peerHost'], ['se-pp', 'peerPort'], ['se-pa', 'peerPath'], ['se-ice', 'ice']]) $('#' + id).addEventListener('input', (e) => { S[key] = e.target.value.trim(); });
     $('#se-ps').addEventListener('change', (e) => { S.peerSecure = e.target.checked; });
@@ -7698,11 +7876,11 @@ const UI = {
     while (f.children.length > 6) f.removeChild(f.firstChild);
     setTimeout(() => d.remove(), 7200);
   },
-  hurt(amount, kind) { const h = $('#hurtflash'); h.style.transition = 'none'; h.style.opacity = Math.min(1, 0.4 + amount / 40); requestAnimationFrame(() => { h.style.transition = 'opacity .8s'; h.style.opacity = 0; }); Player.shake = Math.max(Player.shake, kind === 'saw' ? 1.2 : 0.6); this.teamChanged(); },
-  healed() { this.teamChanged(); this.toast('傷の手当てをした', 'sys'); },
+  hurt(amount, kind) { try { Haptic.pulse(Math.min(1, 0.35 + amount / 50), Math.min(1, 0.5 + amount / 80), 160 + amount * 4); } catch (e) {} const h = $('#hurtflash'); h.style.transition = 'none'; h.style.opacity = Math.min(1, 0.4 + amount / 40); requestAnimationFrame(() => { h.style.transition = 'opacity .8s'; h.style.opacity = 0; }); Player.shake = Math.max(Player.shake, kind === 'saw' ? 1.2 : 0.6); this.teamChanged(); },
+  healed() { try { Haptic.pulse(0.15, 0.4, 140); } catch (e) {} this.teamChanged(); this.toast('傷の手当てをした', 'sys'); },
   flashNoise() { const m = $('#h-mg'); m.classList.remove('noiseflash'); void m.offsetWidth; m.classList.add('noiseflash'); this.noiseFlash = 0.6; },
   spectating(c) { const s = $('#h-spec'); s.hidden = false; s.textContent = '観戦中：' + (c.isVictim ? c.def.name : c.def.alias) + '（' + c.name + '）　クリックで切替'; },
-  grabEvent(ev) { const me = Game.me(); if (!me) return; if (ev.v === me.id || ev.f === me.id) { if (ev.s === 'start') { this.grab = { bar: 0, f: ev.f, v: ev.v }; this.toast(me.isVictim ? '捕まった！ E連打で振りほどけ' + (me.inv.bone ? '（Fで骨片）' : '') : '捕まえた！ 左クリック連打', me.isVictim ? 'dead' : 'sys'); } else { this.grab = null; } } },
+  grabEvent(ev) { const me = Game.me(); if (!me) return; if (ev.v === me.id || ev.f === me.id) { Haptic.pulse(1, 0.7, 260); if (ev.s === 'start') { this.grab = { bar: 0, f: ev.f, v: ev.v }; this.toast(me.isVictim ? '捕まった！ E連打で振りほどけ' + (me.inv.bone ? '（Fで骨片）' : '') : '捕まえた！ 左クリック連打', me.isVictim ? 'dead' : 'sys'); } else { this.grab = null; } } },
   grabBar(ev) { if (this.grab && this.grab.v === ev.v) this.grab.bar = ev.b; },
   taskStart(T) { this.task = T; $('#h-mg').hidden = false; $('#h-mgl').textContent = T.label || ''; },
   taskEnd() { this.task = null; $('#h-mg').hidden = true; },
@@ -7780,7 +7958,7 @@ const UI = {
       let nd = 1e9; for (const f of Game.chars) if (f.isFamily && f.alive && Math.abs(f.y - me.y) < 3) nd = Math.min(nd, Math.hypot(f.x - me.x, f.z - me.z));
       vig = clamp(1 - (nd - 4) / 14, 0, 1);
       this.hbT = (this.hbT || 0) - dt;
-      if (vig > 0.05 && this.hbT <= 0) { this.hbT = lerp(1.1, 0.42, vig); Sound.play('heartbeat', null, { k: 0.35 + vig * 0.6 }); }
+      if (vig > 0.05 && this.hbT <= 0) { this.hbT = lerp(1.1, 0.42, vig); Sound.play('heartbeat', null, { k: 0.35 + vig * 0.6 }); Haptic.pulse(0.25 + vig * 0.5, 0.05, 110); }
       Sound.setTension(Math.max(vig, (Game.chars.some((f) => f.isFamily && f.alive && f.st.rev > 0.4 && Math.hypot(f.x - me.x, f.z - me.z) < 25) ? 0.6 : 0)));
     } else if (me.isFamily) {
       let nd = 1e9; for (const v of Game.chars) if (v.isVictim && v.alive && v.revUntil > t) nd = Math.min(nd, Math.hypot(v.x - me.x, v.z - me.z));
@@ -8185,8 +8363,20 @@ const Main = {
   Input.isTouch = false;
   Input.touch = { stick:{x:0,y:0}, lookX:0, lookY:0, keys:{}, pressed:new Set(), mb:[false,false,false], mbP:[false,false,false], mbR:[false,false,false] };
   Input.detectTouch = function(){
-    try { this.isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.matchMedia && matchMedia('(hover: none) and (pointer: coarse)').matches); } catch(e){ this.isTouch = ('ontouchstart' in window); }
+    // 主な入力が指（スマホ・タブレット）の時だけタッチ操作にする。
+    // 以前は「タッチ対応の画面」というだけでタッチ扱いになり、タッチ対応ノートPCではWASD・マウスが効かなくなっていた
+    let t = false;
+    try { const mq = (q) => !!(window.matchMedia && matchMedia(q).matches); t = (mq('(hover: none)') && mq('(pointer: coarse)')) || (mq('(pointer: coarse)') && !mq('(pointer: fine)') && !mq('(any-pointer: fine)')); } catch(e){ t = false; }
+    if (/[?&]touch/.test(location.search)) t = true; if (/[?&]notouch/.test(location.search)) t = false;
+    this.isTouch = t;
     if (this.isTouch) { document.body.classList.add('touch'); this.locked = true; this.soft = true; }
+  };
+  // キーボードを使い始めたらタッチ操作をやめる（キーボード付きタブレット用）
+  Input.leaveTouch = function(){
+    if (!this.isTouch) return;
+    this.isTouch = false; document.body.classList.remove('touch'); this.soft = false; this.locked = false;
+    for (const k in this.touch.keys) this.touch.keys[k] = false;
+    if (this.gameFocus) { try { this.requestLock(); } catch(e){} }
   };
   Input.applyTouch = function(){
     if (!this.isTouch) return;
